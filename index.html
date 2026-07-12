@@ -177,9 +177,9 @@
     box-shadow:0 2px 7px rgba(0,0,0,.28);font-weight:700;font-size:14px;font-family:'Quicksand',sans-serif;
     display:flex;align-items:center;justify-content:center;
   }
-  .mpin.bed{background:#f59f00;color:#fff;font-size:16px}
+  .mpin.bed{background:var(--col-hotel,#f59f00);color:#fff;font-size:16px}
   .apin{
-    width:28px;height:28px;border-radius:9px;background:#4263eb;color:#fff;
+    width:28px;height:28px;border-radius:9px;background:var(--col-act,#4263eb);color:#fff;
     display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;
     border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);font-family:'Quicksand',sans-serif;
   }
@@ -240,7 +240,7 @@
   .sch-dayhead b{font-size:14px}
   .sch-dayhead .addbtn{margin-left:auto;background:var(--green-soft);color:var(--green-ink);border:none;border-radius:99px;width:26px;height:26px;font-weight:800;cursor:pointer;font-size:13px}
   .sch-item{display:flex;align-items:center;gap:11px;padding:9px 14px 8px}
-  .sch-item .sic{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex:none}
+  .sch-item .sic{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:21px;flex:none}
   .sch-item .ttl{flex:1;min-width:0;text-align:left;background:none;border:none;font:inherit;font-weight:700;font-size:15px;color:var(--ink);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0}
   .sch-item .grip{color:var(--muted);cursor:grab;touch-action:none;padding:8px;font-size:17px;flex:none}
   .sch-trav{display:flex;align-items:center;gap:10px;padding:3px 16px 3px 26px;font-size:13px;color:#5b6b7b;font-weight:700;font-variant-numeric:tabular-nums}
@@ -402,8 +402,15 @@ const GMAPS_KEY='AIzaSyCWDRxNNWM7bbM0jyNqM0ccCMj4Zr-Tsgc'; // Google Places API-
 const BUFFER_MIN=15;        // buffer bij vertrekadvies
 
 /* instellingen (per toestel bewaard) */
-let SETTINGS={veh:'car',range:330,charge:25,nav:'google'};
+let SETTINGS={veh:'car',range:330,charge:25,nav:'google',colAct:'#4263eb',colHotel:'#f59f00',colStart:'#2fbe8f'};
 try{ Object.assign(SETTINGS, JSON.parse(localStorage.getItem('travai_settings')||'{}')); }catch(e){}
+function applyColors(){
+  const r=document.documentElement.style;
+  r.setProperty('--col-act',SETTINGS.colAct||'#4263eb');
+  r.setProperty('--col-hotel',SETTINGS.colHotel||'#f59f00');
+  r.setProperty('--col-start',SETTINGS.colStart||'#2fbe8f');
+}
+applyColors();
 
 let sb=null, user=null, RT=null;
 let trips=[], memberships={};
@@ -624,6 +631,11 @@ function sheetSettings(){
       '<option value="tesla"'+(SETTINGS.nav==='tesla'?' selected':'')+'>Tesla (via deelmenu naar je auto)</option>'+
     '</select></div>'+
     '<p style="font-size:12.5px;color:var(--muted);margin:-4px 0 6px">Tesla: de bestemming wordt gedeeld; kies in het deelmenu de Tesla-app en hij verschijnt in de navigatie van je auto.</p>'+
+    '<div class="field"><label>Kleuren van de iconen</label><div class="row2">'+
+      '<div class="field" style="margin:0"><label style="text-transform:none">Activiteiten</label><input id="s_colact" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colAct+'"></div>'+
+      '<div class="field" style="margin:0"><label style="text-transform:none">Slaapplek</label><input id="s_colhotel" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colHotel+'"></div>'+
+      '<div class="field" style="margin:0"><label style="text-transform:none">Vertrek/stop</label><input id="s_colstart" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colStart+'"></div>'+
+    '</div></div>'+
     '<div class="btns"><button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveSettings()">Bewaar</button></div>');
 }
@@ -632,7 +644,11 @@ function saveSettings(){
   SETTINGS.range=Math.max(50,+document.getElementById('s_range').value||330);
   SETTINGS.charge=Math.max(5,+document.getElementById('s_charge').value||25);
   SETTINGS.nav=document.getElementById('s_nav').value;
+  SETTINGS.colAct=document.getElementById('s_colact').value;
+  SETTINGS.colHotel=document.getElementById('s_colhotel').value;
+  SETTINGS.colStart=document.getElementById('s_colstart').value;
   localStorage.setItem('travai_settings',JSON.stringify(SETTINGS));
+  applyColors();
   closeSheet(); render();
 }
 /* navigeer naar een punt met de gekozen app (Google/Waze/Apple/Tesla) */
@@ -944,7 +960,7 @@ function mountMap(){
     pts.push([s.lat,s.lng]);
     if(!s.isHome) num++;
     const editBtn=canEdit(cur)?'<br><button class="maplink" style="border:none;cursor:pointer;margin-top:6px" onclick="sheetStop(\''+s.id+'\')">'+ic('pencil')+' Bewerken</button>':'';
-    L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:'<div class="mpin" style="color:'+STOPCOLORS[i%STOPCOLORS.length]+'">'+(s.isHome?ic('home'):num)+'</div>',iconSize:[32,32],iconAnchor:[16,16]})})
+    L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:'<div class="mpin" style="color:'+STOPCOLORS[i%STOPCOLORS.length]+';font-size:17px">'+(s.isHome?ic('home'):ic('map-pin'))+'</div>',iconSize:[32,32],iconAnchor:[16,16]}),title:s.name})
       .addTo(MAP).bindPopup('<b>'+esc(s.name)+'</b><br>'+(r.from?fmtKort(r.from)+(s.isHome?' · thuis':(s.nights>0?' – '+fmtKort(r.to):' · tussenstop')):'')+editBtn);
     hotelsForStop(cur,r).forEach(hx=>{
       if(hx.lat!=null) L.marker([hx.lat,hx.lng],{icon:L.divIcon({className:'',html:'<div class="mpin bed">'+ic('bed')+'</div>',iconSize:[32,32],iconAnchor:[16,16]})})
@@ -1263,17 +1279,17 @@ function schemaPoints(d){
   const pts=[];
   const prevHotel=hotelForDay(t,addDays(d,-1));
   if(prevHotel){
-    pts.push({kind:'hotel',label:prevHotel.name,icon:'bed',lat:prevHotel.lat,lng:prevHotel.lng,hotel:prevHotel,color:'#f59f00'});
+    pts.push({kind:'hotel',label:prevHotel.name,icon:'bed',lat:prevHotel.lat,lng:prevHotel.lng,hotel:prevHotel,color:SETTINGS.colHotel});
   } else if(di===0&&t.data.stops.length){
     const s=t.data.stops[0];
-    pts.push({kind:'start',label:s.name,icon:s.isHome?'home':'flag',lat:s.lat,lng:s.lng,color:'#2fbe8f'});
+    pts.push({kind:'start',label:s.name,icon:s.isHome?'home':'flag',lat:s.lat,lng:s.lng,stop:s,color:SETTINGS.colStart});
   } else {
     const r=stopRanges(t).find(rr=>rangeDays(rr).includes(d));
-    if(r&&r.stop.lat!=null) pts.push({kind:'start',label:r.stop.name,icon:'map-pin',lat:r.stop.lat,lng:r.stop.lng,color:'#2fbe8f'});
+    if(r&&r.stop.lat!=null) pts.push({kind:'start',label:r.stop.name,icon:'map-pin',lat:r.stop.lat,lng:r.stop.lng,stop:r.stop,color:SETTINGS.colStart});
   }
-  sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:a.title,icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:'#4263eb'}));
+  sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:a.title,icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:SETTINGS.colAct}));
   const ton=hotelForDay(t,d);
-  if(ton&&!(pts[0]&&pts[0].hotel===ton)) pts.push({kind:'hotel',label:ton.name,icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton,color:'#f59f00'});
+  if(ton&&!(pts[0]&&pts[0].hotel===ton)) pts.push({kind:'hotel',label:ton.name,icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton,color:SETTINGS.colHotel});
   return pts;
 }
 function renderSchema(){
@@ -1287,8 +1303,8 @@ function renderSchema(){
     pts.forEach((p,idx)=>{
       if(idx>0) h+='<div class="sch-trav" id="trs-'+d+'-'+idx+'">'+ic('car')+'<span class="t1">–:–</span><span class="mid">…</span><span class="t2">–:–</span></div>';
       h+='<div class="sch-item" data-day="'+d+'"'+(p.act?' data-act="'+p.act.id+'"':'')+'>'+
-        '<span class="sic" style="background:'+p.color+'">'+ic(p.icon)+'</span>'+
-        '<button class="ttl" '+(p.act?'onclick="sheetAct(\''+p.act.id+'\')"':(p.hotel?'onclick="sheetHotel(\''+p.hotel.id+'\')"':''))+'>'+esc(p.label)+'</button>'+
+        '<span class="sic" style="color:'+p.color+'">'+ic(p.icon)+'</span>'+
+        '<button class="ttl" '+(p.act?'onclick="sheetAct(\''+p.act.id+'\')"':(p.hotel?'onclick="sheetHotel(\''+p.hotel.id+'\')"':(p.stop?'onclick="sheetStop(\''+p.stop.id+'\')"':'')))+'>'+esc(p.label)+'</button>'+
         (edit&&p.act?'<span class="grip" onpointerdown="gripDown(event,\''+p.act.id+'\')">'+ic('grip-vertical')+'</span>':'')+
       '</div>';
     });
