@@ -1603,6 +1603,7 @@ function sheetAct(id,day,pre){
     '<div class="field"><label>Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
     '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:(pre.addr||''))+'"></div>'+
     '<div class="field"><label>Notitie (optioneel)</label><textarea id="f_note" rows="2">'+esc(a?a.note:'')+'</textarea></div>'+
+    (a&&canEdit(cur)?'<button class="btn ghost" style="width:100%;margin-bottom:4px" onclick="actToStop(\''+a.id+'\')">'+ic('route')+' Neem op in de route als tussenstop</button>':'')+
     '<div class="btns">'+(a?'<button class="btn danger" onclick="delAct(\''+a.id+'\')">'+ic('trash')+'</button>':'')+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveAct(\''+(a?a.id:'')+'\','+(pre.lat!=null?pre.lat:'null')+','+(pre.lng!=null?pre.lng:'null')+')">Bewaar</button></div>');
@@ -1627,6 +1628,22 @@ async function saveAct(id,preLat,preLng){
   await pushData(); closeSheet(); render();
 }
 async function delAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); await pushData(); closeSheet(); render(); }
+/* activiteit als tussenstop in de route opnemen, op de plek met de kleinste omweg */
+async function actToStop(actId){
+  const a=cur.data.acts.find(x=>x.id===actId);
+  if(!a||a.lat==null){ alert('Deze activiteit heeft nog geen locatie. Kies een zoeksuggestie of vul een adres in en bewaar eerst.'); return; }
+  const ss=cur.data.stops;
+  if(ss.some(s=>s.lat===a.lat&&s.lng===a.lng)){ alert('Deze plek staat al op de route.'); return; }
+  let best=ss.length, bestD=Infinity;
+  for(let i=1;i<ss.length;i++){
+    const p=ss[i-1], n=ss[i];
+    if(p.lat==null||n.lat==null) continue;
+    const d=havKm(p,a)+havKm(a,n)-havKm(p,n);
+    if(d<bestD){ bestD=d; best=i; }
+  }
+  ss.splice(best,0,{id:uid(),name:a.title,lat:a.lat,lng:a.lng,nights:0});
+  await pushData(); closeSheet(); tab='route'; render();
+}
 
 /* --- slaapplek --- */
 function sheetHotel(id,stopId){
