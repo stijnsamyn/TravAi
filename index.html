@@ -183,6 +183,11 @@
     display:flex;align-items:center;justify-content:center;font-size:15px;
     border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);
   }
+  .pop-btn{
+    display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;
+    border-radius:50%;border:none;background:var(--green-soft);color:var(--green-ink);
+    cursor:pointer;font-size:18px;margin:8px 8px 0 0;
+  }
   .modemark{
     width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.25);
     display:flex;align-items:center;justify-content:center;font-size:15px;
@@ -419,7 +424,7 @@ const DAGK=['zo','ma','di','wo','do','vr','za'];
 function ic(n){ return '<i class="ti ti-'+n+'"></i>'; }
 const ACT_TYPES={act:['target','Activiteit'],sight:['star','Bezienswaardigheid'],museum:['building-bank','Museum'],castle:['building-castle','Kasteel/Fort'],nature:['trees','Natuur'],sport:['run','Sport'],shop:['shopping-bag','Winkelen'],food:['tools-kitchen-2','Eten & drinken'],transport:['train','Vervoer'],flight:['plane','Vlucht']};
 /* Google/OSM-plaatstype naar activiteitstype */
-const GTYPE_MAP={museum:'museum',art_gallery:'museum',gallery:'museum',historical_landmark:'castle',castle:'castle',ruins:'castle',church:'sight',tourist_attraction:'sight',attraction:'sight',viewpoint:'sight',monument:'sight',memorial:'sight',park:'nature',zoo:'nature',national_park:'nature',stadium:'sport',gym:'sport',shopping_mall:'shop',clothing_store:'shop',department_store:'shop',restaurant:'food',cafe:'food',bar:'food',bakery:'food',amusement_park:'act',theme_park:'act'};
+const GTYPE_MAP={museum:'museum',art_gallery:'museum',gallery:'museum',historical_landmark:'castle',castle:'castle',ruins:'castle',church:'sight',tourist_attraction:'sight',attraction:'sight',viewpoint:'sight',monument:'sight',memorial:'sight',park:'nature',zoo:'nature',national_park:'nature',garden:'nature',hiking_area:'nature',stadium:'sport',gym:'sport',sports_complex:'sport',swimming_pool:'sport',shopping_mall:'shop',clothing_store:'shop',department_store:'shop',supermarket:'shop',grocery_store:'shop',market:'shop',restaurant:'food',cafe:'food',bar:'food',bakery:'food',fast_food_restaurant:'food',ice_cream_shop:'food',electric_vehicle_charging_station:'transport',gas_station:'transport',parking:'transport',train_station:'transport',airport:'flight',amusement_park:'act',theme_park:'act'};
 const EXP_CATS={stay:['bed','Verblijf'],food:['tools-kitchen-2','Eten'],transport:['car','Vervoer'],fun:['ticket','Activiteiten'],shop:['shopping-bag','Shopping'],other:['package','Overig']};
 const TRIP_ICONS=['plane','beach','mountain','building-skyscraper','car','ship','snowflake','tent','pizza','compass','bike','camera'];
 const MODES={car:['car','Auto'],moto:['motorbike','Moto'],taxi:['car','Taxi'],bus:['bus','Bus'],train:['train','Trein'],plane:['plane','Vlucht'],boat:['ship','Boot'],bike:['bike','Fiets'],foot:['walk','Te voet']};
@@ -923,8 +928,9 @@ function mountMap(){
     if(a.lat==null) return;
     const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
     L.marker([a.lat,a.lng],{icon:L.divIcon({className:'',html:'<div class="apin">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]})})
-      .addTo(MAP).bindPopup('<b>'+esc(a.title)+'</b><br>'+(a.day?fmtKort(a.day)+(a.time?' · '+a.time:''):'')+
-        '<br><button class="maplink" style="border:none;cursor:pointer;margin-top:6px" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+' Bekijken / bewerken</button>');
+      .addTo(MAP).bindPopup('<b>'+ic(icn)+' '+esc(a.title)+'</b><br>'+(a.day?fmtKort(a.day)+(a.time?' · '+a.time:''):'')+
+        '<br><button class="pop-btn" title="Bekijken (foto\'s en info)" onclick="sheetPlace(\''+a.id+'\')">'+ic('eye')+'</button>'+
+        (canEdit(cur)?'<button class="pop-btn" title="Bewerken" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':''));
   });
   if(pts.length){ MAP.fitBounds(L.latLngBounds(pts).pad(0.25)); }
   else { MAP.setView([50.85,4.35],6); }
@@ -1409,8 +1415,8 @@ function mountDayMap(d){
   let n=0;
   pts.forEach(p=>{
     const html=p.kind==='bed'?'<div class="mpin bed">'+ic('bed')+'</div>':'<div class="mpin" style="color:#b7791f">'+(++n)+'</div>';
-    const editBtn=canEdit(cur)?(p.act?'<br><button class="maplink" style="border:none;cursor:pointer;margin-top:6px" onclick="sheetAct(\''+p.act.id+'\')">'+ic('pencil')+' Bekijken / bewerken</button>':
-      (p.hotel?'<br><button class="maplink" style="border:none;cursor:pointer;margin-top:6px" onclick="sheetHotel(\''+p.hotel.id+'\')">'+ic('pencil')+' Bewerken</button>':'')):'';
+    const editBtn=(p.act?'<br><button class="pop-btn" title="Bekijken" onclick="sheetPlace(\''+p.act.id+'\')">'+ic('eye')+'</button>'+(canEdit(cur)?'<button class="pop-btn" title="Bewerken" onclick="sheetAct(\''+p.act.id+'\')">'+ic('pencil')+'</button>':''):
+      (p.hotel&&canEdit(cur)?'<br><button class="pop-btn" title="Bewerken" onclick="sheetHotel(\''+p.hotel.id+'\')">'+ic('pencil')+'</button>':''));
     L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html,iconSize:[32,32],iconAnchor:[16,16]})}).addTo(DMAP).bindPopup('<b>'+esc(p.label)+'</b>'+editBtn);
   });
   DMAP.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])).pad(0.3));
@@ -1891,7 +1897,8 @@ async function delAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); awa
 async function sheetPlace(actId){
   const a=cur.data.acts.find(x=>x.id===actId); if(!a) return;
   openSheet('<h2>'+ic('photo')+' '+esc(a.title)+'</h2><div id="plc" style="min-height:80px">Laden…</div>'+
-    '<div class="btns">'+(a.addr?'<a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" href="'+gmapsUrl(a.addr)+'">'+ic('navigation')+' Google Maps</a>':'')+
+    '<div class="btns">'+(canEdit(cur)?'<button class="btn ghost" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+' Bewerken</button>':'')+
+    (a.addr?'<a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" href="'+gmapsUrl(a.addr)+'">'+ic('navigation')+' Maps</a>':'')+
     '<button class="btn primary" onclick="closeSheet()">Sluiten</button></div>');
   const box=()=>document.getElementById('plc');
   if(!GMAPS_KEY){ if(box()) box().innerHTML='<p style="color:var(--muted);font-size:14px">Foto\'s en details vereisen de Google Places-koppeling.</p>'; return; }
