@@ -1531,8 +1531,11 @@ async function computeSchema(){
       } else cursor=arr;
       const el2=document.getElementById('trs-'+d+'-'+i);
       if(el2){
+        const modeName={car:'auto',foot:'te voet',bike:'fiets'}[tm];
+        const unreal=(tm==='foot'&&c.km>25)||(tm==='bike'&&c.km>120);
         el2.querySelector('.t1').textContent=minToHm(dep);
-        el2.querySelector('.mid').textContent=(Math.round(c.km*10)/10)+' km / '+durTxt(c.min)+(c.est?' ≈':'');
+        el2.querySelector('.mid').innerHTML=modeName+' · '+(Math.round(c.km*10)/10)+' km / '+durTxt(c.min)+(c.est?' ≈':'')+
+          (unreal?' <span style="color:var(--red)">· onrealistisch, tik voor auto</span>':'');
         el2.querySelector('.t2').textContent=minToHm(arr);
       }
     }
