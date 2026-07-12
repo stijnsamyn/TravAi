@@ -438,7 +438,7 @@ const GMAPS_KEY='AIzaSyCWDRxNNWM7bbM0jyNqM0ccCMj4Zr-Tsgc'; // Google Places API-
 const BUFFER_MIN=15;        // buffer bij vertrekadvies
 
 /* instellingen (per toestel bewaard) */
-let SETTINGS={veh:'car',range:330,charge:25,nav:'google',colAct:'#4263eb',colHotel:'#f59f00',colStart:'#2fbe8f',showBudget:true,showLists:true};
+let SETTINGS={veh:'car',range:330,charge:25,nav:'google',colAct:'#4263eb',colHotel:'#f59f00',colStart:'#2fbe8f',showBudget:true,showLists:true,showAI:true};
 try{ Object.assign(SETTINGS, JSON.parse(localStorage.getItem('travai_settings')||'{}')); }catch(e){}
 function applyColors(){
   const r=document.documentElement.style;
@@ -685,6 +685,7 @@ function sheetSettings(){
     setSec('layout-list','Weergave')+
     setToggle('s_showbudget','Budget-tab tonen',SETTINGS.showBudget!==false,'Uitgaven bijhouden per reis')+
     setToggle('s_showlists','Lijsten-tab tonen',SETTINGS.showLists!==false,'To-do en paklijst')+
+    setToggle('s_showai','AI-reisagent',SETTINGS.showAI!==false,'Voorstellen per bestemming (kost een paar cent per aanvraag)')+
 
     setSec('car','Voertuig')+
     '<div class="field"><label>Mijn voertuig</label><select id="s_veh">'+
@@ -717,6 +718,7 @@ function sheetSettings(){
 function saveSettings(){
   SETTINGS.showBudget=document.getElementById('s_showbudget').checked;
   SETTINGS.showLists=document.getElementById('s_showlists').checked;
+  SETTINGS.showAI=document.getElementById('s_showai').checked;
   SETTINGS.veh=document.getElementById('s_veh').value;
   SETTINGS.range=Math.max(50,+document.getElementById('s_range').value||330);
   SETTINGS.charge=Math.max(5,+document.getElementById('s_charge').value||25);
@@ -859,7 +861,7 @@ function renderRoute(){
           (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">'+ic('plus')+' slaapplek</button>':''))+
         (acts.length&&s.nights>0?'<button class="chip act" onclick="routeMode=\'micro\';render()">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
         (edit&&r.from&&s.nights>0?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
-        (edit&&r.from&&s.nights>0&&!s.isHome?'<button class="chip ai" id="ai-'+s.id+'" onclick="aiSuggest(\''+s.id+'\')">'+ic('sparkles')+' AI-voorstellen</button>':'')+
+        (edit&&r.from&&s.nights>0&&!s.isHome&&SETTINGS.showAI!==false?'<button class="chip ai" id="ai-'+s.id+'" onclick="aiSuggest(\''+s.id+'\')">'+ic('sparkles')+' AI-voorstellen</button>':'')+
       '</div>'+
       '</div>'+
       (s.isHome?'':'<div class="stepper"><div class="row">'+
