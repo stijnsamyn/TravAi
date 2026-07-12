@@ -927,10 +927,8 @@ function mountMap(){
   cur.data.acts.forEach(a=>{
     if(a.lat==null) return;
     const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
-    L.marker([a.lat,a.lng],{icon:L.divIcon({className:'',html:'<div class="apin">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]})})
-      .addTo(MAP).bindPopup('<b>'+ic(icn)+' '+esc(a.title)+'</b><br>'+(a.day?fmtKort(a.day)+(a.time?' · '+a.time:''):'')+
-        '<br><button class="pop-btn" title="Bekijken (foto\'s en info)" onclick="sheetPlace(\''+a.id+'\')">'+ic('eye')+'</button>'+
-        (canEdit(cur)?'<button class="pop-btn" title="Bewerken" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':''));
+    L.marker([a.lat,a.lng],{icon:L.divIcon({className:'',html:'<div class="apin">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]}),title:a.title})
+      .addTo(MAP).on('click',()=>sheetPlace(a.id));
   });
   if(pts.length){ MAP.fitBounds(L.latLngBounds(pts).pad(0.25)); }
   else { MAP.setView([50.85,4.35],6); }
@@ -1415,9 +1413,9 @@ function mountDayMap(d){
   let n=0;
   pts.forEach(p=>{
     const html=p.kind==='bed'?'<div class="mpin bed">'+ic('bed')+'</div>':'<div class="mpin" style="color:#b7791f">'+(++n)+'</div>';
-    const editBtn=(p.act?'<br><button class="pop-btn" title="Bekijken" onclick="sheetPlace(\''+p.act.id+'\')">'+ic('eye')+'</button>'+(canEdit(cur)?'<button class="pop-btn" title="Bewerken" onclick="sheetAct(\''+p.act.id+'\')">'+ic('pencil')+'</button>':''):
-      (p.hotel&&canEdit(cur)?'<br><button class="pop-btn" title="Bewerken" onclick="sheetHotel(\''+p.hotel.id+'\')">'+ic('pencil')+'</button>':''));
-    L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html,iconSize:[32,32],iconAnchor:[16,16]})}).addTo(DMAP).bindPopup('<b>'+esc(p.label)+'</b>'+editBtn);
+    const mk=L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html,iconSize:[32,32],iconAnchor:[16,16]}),title:p.label}).addTo(DMAP);
+    if(p.act) mk.on('click',()=>sheetPlace(p.act.id));
+    else mk.bindPopup('<b>'+esc(p.label)+'</b>'+(p.hotel&&canEdit(cur)?'<br><button class="pop-btn" title="Bewerken" onclick="sheetHotel(\''+p.hotel.id+'\')">'+ic('pencil')+'</button>':''));
   });
   DMAP.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])).pad(0.3));
   drawDayRoutes(pts);
