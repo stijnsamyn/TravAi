@@ -1493,9 +1493,11 @@ function renderSchema(){
         const click=edit&&(p.act||p.hotel)?' style="cursor:pointer" title="Tik om te wisselen: auto → te voet → fiets" onclick="cycleTrav(\''+(p.act?p.act.id:p.hotel.id)+'\',\''+(p.act?'act':'hotel')+'\')"':'';
         h+='<div class="sch-trav" id="trs-'+d+'-'+idx+'"'+click+'>'+ic(TRAV_ICON[tm])+'<span class="t1">–:–</span><span class="mid">…</span><span class="t2">–:–</span></div>';
       }
-      h+='<div class="sch-item" data-day="'+d+'"'+(p.act?' data-act="'+p.act.id+'"':'')+'>'+
-        '<span class="sic" style="color:'+p.color+'">'+ic(p.icon)+'</span>'+
-        '<button class="ttl" '+(p.act?'onclick="sheetAct(\''+p.act.id+'\')"':(p.hotel?'onclick="sheetHotel(\''+p.hotel.id+'\')"':(p.phStop?'onclick="sheetHotel(null,\''+p.phStop.id+'\')"':(p.stop?'onclick="sheetStop(\''+p.stop.id+'\')"':''))))+'>'+esc(p.label)+'</button>'+
+      const ph=p.phStop&&!p.hotel; /* placeholder-slaapplek: onopvallend tonen */
+      h+='<div class="sch-item" data-day="'+d+'"'+(p.act?' data-act="'+p.act.id+'"':'')+(ph?' style="padding-top:4px;padding-bottom:4px"':'')+'>'+
+        '<span class="sic" style="color:'+p.color+(ph?';font-size:15px':'')+'">'+ic(p.icon)+'</span>'+
+        '<button class="ttl" '+(ph?'style="color:var(--muted);font-weight:500;font-style:italic;font-size:12.5px" ':'')+
+        (p.act?'onclick="sheetAct(\''+p.act.id+'\')"':(p.hotel?'onclick="sheetHotel(\''+p.hotel.id+'\')"':(p.phStop?'onclick="sheetHotel(null,\''+p.phStop.id+'\')"':(p.stop?'onclick="sheetStop(\''+p.stop.id+'\')"':''))))+'>'+esc(p.label)+'</button>'+
         (edit&&p.act?'<span class="grip" onpointerdown="gripDown(event,\''+p.act.id+'\')">'+ic('grip-vertical')+'</span>':'')+
       '</div>';
     });
