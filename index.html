@@ -225,6 +225,8 @@
     border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);font-family:'Quicksand',sans-serif;
   }
   .apin.prop{background:#fdfcff;color:#9775fa;border:2px dashed #9775fa;opacity:.92}
+  .apin{transition:transform .15s,box-shadow .15s}
+  .mhl .apin{transform:scale(1.4);box-shadow:0 0 0 5px rgba(66,99,235,.30),0 4px 14px rgba(0,0,0,.35)}
   .pop-btn{
     display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;
     border-radius:50%;border:none;background:var(--green-soft);color:var(--green-ink);
@@ -1032,7 +1034,7 @@ function renderStopDays(t,r,edit){
     if(!acts.length) h+='<div class="mini-none">nog niets gepland</div>';
     acts.forEach(a=>{
       const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
-      h+='<div class="mini"><span class="t">'+(a.time?esc(a.time):'—')+(a.end?'<br><span style="color:var(--muted);font-size:10px">'+esc(a.end)+'</span>':'')+'</span>'+
+      h+='<div class="mini" data-act="'+a.id+'"><span class="t">'+(a.time?esc(a.time):'—')+(a.end?'<br><span style="color:var(--muted);font-size:10px">'+esc(a.end)+'</span>':'')+'</span>'+
          '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+ic(icn)+' '+esc(a.title)+'</button>'+
          (edit?'<button class="mv" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">'+ic('chevron-left')+'</button><button class="mv" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">'+ic('chevron-right')+'</button>':'')+
          '</div>';
@@ -1179,11 +1181,14 @@ function mountMap(){
     });
   });
   /* eigen activiteiten altijd bovenop AI-voorstellen tekenen */
+  ACTMARK={};
   [...cur.data.acts].sort((a,b)=>(a.proposed?0:1)-(b.proposed?0:1)).forEach(a=>{
     if(a.lat==null) return;
     const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
-    L.marker([a.lat,a.lng],{zIndexOffset:a.proposed?-1000:0,icon:L.divIcon({className:'',html:'<div class="apin'+(a.proposed?' prop':'')+'">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]}),title:a.title})
+    const mk=L.marker([a.lat,a.lng],{zIndexOffset:a.proposed?-1000:0,icon:L.divIcon({className:'',html:'<div class="apin'+(a.proposed?' prop':'')+'">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]}),title:a.title})
       .addTo(MAP).on('click',()=>sheetPlace(a.id));
+    mk._basez=a.proposed?-1000:0;
+    ACTMARK[a.id]=mk;
   });
   /* kaartpositie behouden bij her-renderen (bv. na activiteit toevoegen) */
   if(MAPVIEW){ MAP.setView(MAPVIEW.c,MAPVIEW.z); }
@@ -1758,6 +1763,21 @@ async function computeSchema(){
     }
   }
 }
+/* hover op een activiteit in de lijst: marker op de kaart licht op */
+let ACTMARK={}, HLACT=null;
+function setActHl(id,on){
+  const mk=ACTMARK[id]; if(!mk||!mk._icon) return;
+  mk._icon.classList.toggle('mhl',on);
+  mk.setZIndexOffset(on?2000:(mk._basez||0));
+}
+document.addEventListener('mouseover',e=>{
+  const el=e.target&&e.target.closest?e.target.closest('[data-act]'):null;
+  const id=el?el.dataset.act:null;
+  if(id===HLACT) return;
+  if(HLACT) setActHl(HLACT,false);
+  HLACT=id||null;
+  if(HLACT) setActHl(HLACT,true);
+});
 /* slepen met muis of vinger (via het grip-icoon) */
 let DRAG=null;
 function gripDown(e,actId){
