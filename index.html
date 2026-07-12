@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TravAI">
+<meta name="theme-color" content="#0f766e">
+<title>TravAI Pro — Reisplanner</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --teal:#0f766e; --teal-dark:#115e59; --teal-light:#ccfbf1;
+    --bg:#f4f6f8; --card:#ffffff; --text:#1e293b; --muted:#64748b;
+    --border:#e2e8f0; --red:#dc2626; --amber:#d97706;
+    --radius:16px; --shadow:0 1px 3px rgba(0,0,0,.08);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--text);
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+    max-width:560px; margin:0 auto;
+  }
+  header{
+    background:linear-gradient(135deg,var(--teal),var(--teal-dark));
+    color:#fff; padding:18px 20px 16px; position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; gap:12px;
+    border-radius:0 0 20px 20px;
+  }
+  header .hbtn{
+    background:rgba(255,255,255,.18); border:none; color:#fff;
+    width:34px;height:34px;border-radius:50%;font-size:17px;cursor:pointer;flex:none;
+  }
+  header h1{font-size:19px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  header .sub{font-size:12px;opacity:.85;font-weight:400}
+  main{padding:16px 16px 110px}
+  .card{
+    background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:14px 16px; margin-bottom:12px; position:relative;
+  }
+  .card.tap{cursor:pointer; transition:transform .08s}
+  .card.tap:active{transform:scale(.98)}
+  .empty{text-align:center; color:var(--muted); padding:44px 24px; font-size:15px}
+  .empty .big{font-size:44px; margin-bottom:12px}
+  .fab{
+    position:fixed; bottom:calc(84px + env(safe-area-inset-bottom)); right:20px;
+    width:58px;height:58px;border-radius:50%;border:none;cursor:pointer;
+    background:var(--teal); color:#fff; font-size:28px; line-height:1;
+    box-shadow:0 4px 14px rgba(15,118,110,.4); z-index:30;
+  }
+  .fab.home{bottom:calc(24px + env(safe-area-inset-bottom))}
+  .fab:active{transform:scale(.94)}
+  .trip-emoji{font-size:30px}
+  .trip-row{display:flex;align-items:center;gap:14px}
+  .trip-info{flex:1;min-width:0}
+  .trip-info h3{font-size:17px;font-weight:700}
+  .trip-info .dest{color:var(--muted);font-size:14px;margin-top:2px}
+  .trip-info .dates{color:var(--teal);font-size:13px;font-weight:600;margin-top:4px}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;flex:none}
+  .badge.soon{background:#fef3c7;color:var(--amber)}
+  .badge.now{background:var(--teal-light);color:var(--teal-dark)}
+  .badge.past{background:#f1f5f9;color:var(--muted)}
+  .badge.shared{background:#e0e7ff;color:#4338ca}
+  .tabs{
+    position:fixed; bottom:0; left:0; right:0; max-width:560px; margin:0 auto;
+    background:rgba(255,255,255,.95); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    display:flex; border-top:1px solid var(--border); z-index:25;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .tabs button{
+    flex:1; background:none; border:none; padding:10px 2px 8px; cursor:pointer;
+    font-size:10px; color:var(--muted); font-weight:600;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+  }
+  .tabs button .ico{font-size:21px}
+  .tabs button.on{color:var(--teal)}
+  .day-head{display:flex;align-items:baseline;gap:8px;margin:20px 4px 10px}
+  .day-head .n{background:var(--teal);color:#fff;font-size:12px;font-weight:800;padding:3px 10px;border-radius:99px;flex:none}
+  .day-head .d{font-weight:700;font-size:15px}
+  .day-head .add{margin-left:auto;background:var(--teal-light);color:var(--teal-dark);border:none;border-radius:99px;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer}
+  .act{display:flex;gap:12px}
+  .act .time{color:var(--teal);font-weight:700;font-size:13px;flex:none;width:48px;padding-top:2px}
+  .act .body{flex:1;min-width:0}
+  .act .body h4{font-size:15px;font-weight:600}
+  .act .body .addr{font-size:13px;color:var(--muted);margin-top:3px;word-break:break-word}
+  .act .body .note{font-size:13px;color:var(--muted);margin-top:3px;font-style:italic}
+  .maplink{display:inline-block;margin-top:6px;margin-right:6px;font-size:12px;font-weight:700;color:var(--teal);text-decoration:none;background:var(--teal-light);padding:4px 10px;border-radius:99px}
+  .kebab{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:17px;cursor:pointer;padding:6px 10px}
+  .hotel h3{font-size:16px;font-weight:700;padding-right:28px}
+  .hotel .line{font-size:13px;color:var(--muted);margin-top:4px}
+  .hotel .line b{color:var(--text);font-weight:600}
+  .hotel .io{display:flex;gap:10px;margin-top:10px}
+  .hotel .io div{flex:1;background:var(--bg);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--muted)}
+  .hotel .io div b{display:block;color:var(--text);font-size:13px;margin-top:2px}
+  .todo{display:flex;align-items:center;gap:12px}
+  .todo input[type=checkbox]{width:22px;height:22px;accent-color:var(--teal);flex:none}
+  .todo span{flex:1;font-size:15px}
+  .todo.done span{text-decoration:line-through;color:var(--muted)}
+  .todo .del{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px}
+  .inline-add{display:flex;gap:8px;margin-bottom:14px}
+  .inline-add input{flex:1;border:1px solid var(--border);border-radius:12px;padding:11px 14px;font-size:16px;background:#fff}
+  .inline-add button{background:var(--teal);color:#fff;border:none;border-radius:12px;padding:0 18px;font-size:15px;font-weight:700;cursor:pointer}
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:40;display:none;align-items:flex-end;justify-content:center}
+  .overlay.show{display:flex}
+  .sheet{
+    background:#fff;width:100%;max-width:560px;border-radius:22px 22px 0 0;
+    padding:20px 20px calc(24px + env(safe-area-inset-bottom));
+    max-height:88vh;overflow-y:auto;animation:up .22s ease;
+  }
+  @keyframes up{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+  .sheet h2{font-size:18px;margin-bottom:16px}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+  .field input,.field textarea,.field select{
+    width:100%;border:1px solid var(--border);border-radius:12px;padding:11px 13px;
+    font-size:16px;font-family:inherit;background:#fff;color:var(--text);
+  }
+  .field textarea{resize:vertical;min-height:64px}
+  .row2{display:flex;gap:10px}
+  .row2 .field{flex:1}
+  .btns{display:flex;gap:10px;margin-top:18px}
+  .btn{flex:1;border:none;border-radius:13px;padding:14px;font-size:16px;font-weight:700;cursor:pointer}
+  .btn.primary{background:var(--teal);color:#fff}
+  .btn.ghost{background:var(--bg);color:var(--text)}
+  .btn.danger{background:#fee2e2;color:var(--red);flex:0 0 auto;padding:14px 18px}
+  .section-title{font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:22px 4px 10px}
+  .emoji-pick{display:flex;gap:8px;flex-wrap:wrap}
+  .emoji-pick button{font-size:24px;background:var(--bg);border:2px solid transparent;border-radius:12px;width:46px;height:46px;cursor:pointer}
+  .emoji-pick button.on{border-color:var(--teal);background:var(--teal-light)}
+  .type-pick{display:flex;gap:8px;flex-wrap:wrap}
+  .type-pick button{font-size:13px;font-weight:700;background:var(--bg);border:2px solid transparent;border-radius:99px;padding:8px 13px;cursor:pointer;color:var(--muted)}
+  .type-pick button.on{border-color:var(--teal);background:var(--teal-light);color:var(--teal-dark)}
+  /* auth & config */
+  .center-wrap{padding:40px 24px}
+  .logo{text-align:center;margin:26px 0 30px}
+  .logo .m{font-size:56px}
+  .logo h1{font-size:28px;font-weight:800;color:var(--teal-dark);margin-top:8px}
+  .logo p{color:var(--muted);font-size:14px;margin-top:4px}
+  .switch-auth{text-align:center;margin-top:18px;font-size:14px;color:var(--muted)}
+  .switch-auth a{color:var(--teal);font-weight:700;cursor:pointer;text-decoration:none}
+  .msg{background:#fef3c7;color:#92400e;border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:14px;display:none}
+  .msg.show{display:block}
+  /* budget */
+  .bud-total{background:linear-gradient(135deg,var(--teal),var(--teal-dark));color:#fff;border-radius:var(--radius);padding:18px;margin-bottom:14px;text-align:center}
+  .bud-total .amt{font-size:32px;font-weight:800}
+  .bud-total .lbl{font-size:13px;opacity:.85}
+  .bud-cat{display:flex;justify-content:space-between;font-size:14px;padding:6px 2px}
+  .bud-cat b{font-variant-numeric:tabular-nums}
+  .exp{display:flex;align-items:center;gap:10px}
+  .exp .ic{font-size:20px;flex:none}
+  .exp .body{flex:1;min-width:0}
+  .exp .body h4{font-size:14px;font-weight:600}
+  .exp .body .sub2{font-size:12px;color:var(--muted)}
+  .exp .amt{font-weight:800;font-size:15px;font-variant-numeric:tabular-nums}
+  /* members */
+  .member{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--border);font-size:14px}
+  .member:last-child{border-bottom:none}
+  .member .em{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .member .rl{font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);padding:3px 8px;border-radius:99px}
+  .member button{background:none;border:none;color:var(--red);cursor:pointer;font-size:15px;padding:4px}
+  .seg{display:flex;background:var(--bg);border-radius:12px;padding:3px;margin-bottom:14px}
+  .seg button{flex:1;border:none;background:none;padding:9px;font-size:13px;font-weight:700;color:var(--muted);border-radius:10px;cursor:pointer}
+  .seg button.on{background:#fff;color:var(--teal-dark);box-shadow:var(--shadow)}
+  .viewer-note{background:#e0e7ff;color:#4338ca;font-size:13px;font-weight:600;border-radius:12px;padding:10px 14px;margin-bottom:14px;text-align:center}
+  .spin{text-align:center;padding:60px 0;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header id="hdr"><h1>✈️ TravAI Pro</h1></header>
+<main id="main"><div class="spin">Laden…</div></main>
+<div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+
+<script>
+'use strict';
+/* ================= CONFIG & STATE ================= */
+let CFG = null;
+try{ CFG = JSON.parse(localStorage.getItem('travai_cfg')||'null'); }catch(e){}
+let sb=null, user=null;
+let trips=[];            // rijen uit db
+let cur=null;            // huidige reis (rij)
+let view='loading';      // config | auth | home | trip
+let tab='plan';
+let authMode='login';
+
+const MND=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+const DAG=['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+const ACT_TYPES={act:['🎯','Activiteit'],food:['🍽️','Eten & drinken'],transport:['🚆','Vervoer'],flight:['✈️','Vlucht']};
+const EXP_CATS={stay:['🏨','Verblijf'],food:['🍽️','Eten'],transport:['🚗','Vervoer'],fun:['🎟️','Activiteiten'],shop:['🛍️','Shopping'],other:['📦','Overig']};
+const EMOJIS=['✈️','🏖️','🏔️','🏙️','🚗','🛳️','🎿','🏕️','🌴','🗼','🍝','🎡'];
+
+/* ================= HELPERS ================= */
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function fmtD(iso){ if(!iso) return ''; const d=new Date(iso+'T12:00'); return d.getDate()+' '+MND[d.getMonth()]; }
+function fmtDY(iso){ if(!iso) return ''; const d=new Date(iso+'T12:00'); return d.getDate()+' '+MND[d.getMonth()]+' '+d.getFullYear(); }
+function fmtDagLang(iso){ const d=new Date(iso+'T12:00'); return DAG[d.getDay()]+' '+d.getDate()+' '+MND[d.getMonth()]; }
+function eur(n){ return '€ '+(Math.round(n*100)/100).toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function daysOf(t){
+  const out=[]; if(!t.start_date||!t.end_date) return out;
+  let d=new Date(t.start_date+'T12:00'); const e=new Date(t.end_date+'T12:00');
+  while(d<=e && out.length<120){ out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+  return out;
+}
+function mapsUrl(a){ return 'https://maps.apple.com/?q='+encodeURIComponent(a); }
+function gmapsUrl(a){ return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(a); }
+function status(t){
+  const now=new Date().toISOString().slice(0,10);
+  if(t.end_date && t.end_date<now) return ['past','Voorbij'];
+  if(t.start_date && t.start_date<=now && t.end_date>=now) return ['now','Nu bezig'];
+  if(t.start_date){
+    const diff=Math.ceil((new Date(t.start_date)-new Date(now))/86400000);
+    if(diff<=45) return ['soon','Over '+diff+(diff===1?' dag':' dagen')];
+  }
+  return [null,null];
+}
+function norm(t){
+  t.data = t.data||{};
+  ['acts','hotels','todos','pack','exps'].forEach(k=>{ if(!Array.isArray(t.data[k])) t.data[k]=[]; });
+  if(typeof t.data.notes!=='string') t.data.notes='';
+  return t;
+}
+function canEdit(t){ return t && user && t.owner===user.id; }
+
+/* ================= DATA-LAAG ================= */
+async function loadTrips(){
+  const {data,error}=await sb.from('trips').select('*').order('start_date',{ascending:true,nullsFirst:false});
+  if(error){ alert('Kon reizen niet laden: '+error.message); trips=[]; return; }
+  trips=(data||[]).map(norm);
+  if(cur){ cur = trips.find(x=>x.id===cur.id) || null; }
+}
+async function pushData(){
+  if(!canEdit(cur)) return;
+  const {error}=await sb.from('trips').update({data:cur.data, updated_at:new Date().toISOString()}).eq('id',cur.id);
+  if(error) alert('Opslaan mislukt: '+error.message);
+}
+async function refresh(){ await loadTrips(); render(); }
+
+/* ================= ROUTER / RENDER ================= */
+const hdr=document.getElementById('hdr'), m=document.getElementById('main');
+function render(){
+  if(view==='config'){ hdr.innerHTML='<h1>✈️ TravAI Pro</h1>'; m.innerHTML=renderConfig(); setTabs(false); return; }
+  if(view==='auth'){ hdr.innerHTML='<h1>✈️ TravAI Pro</h1>'; m.innerHTML=renderAuth(); setTabs(false); return; }
+  if(view==='home'){
+    hdr.innerHTML='<h1>✈️ TravAI <span class="sub">— mijn reizen</span></h1>'+
+      '<button class="hbtn" title="Vernieuwen" onclick="refresh()">⟳</button>'+
+      '<button class="hbtn" title="Uitloggen" onclick="logout()">⎋</button>';
+    m.innerHTML=renderHome(); setTabs(false); return;
+  }
+  if(view==='trip'){
+    if(!cur){ view='home'; return render(); }
+    hdr.innerHTML='<button class="hbtn" onclick="goHome()">‹</button>'+
+      '<div style="flex:1;min-width:0"><h1>'+esc(cur.emoji||'✈️')+' '+esc(cur.name)+'</h1>'+
+      '<div class="sub">'+esc(cur.dest||'')+' · '+fmtD(cur.start_date)+' – '+fmtDY(cur.end_date)+'</div></div>'+
+      '<button class="hbtn" title="Vernieuwen" onclick="refresh()">⟳</button>';
+    m.innerHTML = (canEdit(cur)?'':'<div class="viewer-note">👀 Je bekijkt deze gedeelde reis (alleen-lezen)</div>')+
+      (tab==='plan'?renderPlan() : tab==='hotels'?renderHotels() : tab==='budget'?renderBudget() : tab==='lists'?renderLists() : renderInfo());
+    setTabs(true);
+    if(tab==='info') loadMembers();
+  }
+}
+function setTabs(show){
+  let el=document.getElementById('tabs');
+  if(!show){ if(el) el.remove(); return; }
+  if(!el){ el=document.createElement('div'); el.className='tabs'; el.id='tabs'; document.body.appendChild(el); }
+  const items=[['plan','📅','Planning'],['hotels','🏨','Hotels'],['budget','💶','Budget'],['lists','✅','Lijsten'],['info','ℹ️','Info']];
+  el.innerHTML=items.map(i=>'<button class="'+(tab===i[0]?'on':'')+'" onclick="setTab(\''+i[0]+'\')"><span class="ico">'+i[1]+'</span>'+i[2]+'</button>').join('');
+}
+function setTab(x){ tab=x; render(); window.scrollTo(0,0); }
+function goHome(){ view='home'; cur=null; render(); }
+function openTrip(id){ cur=trips.find(x=>x.id===id); view='trip'; tab='plan'; render(); window.scrollTo(0,0); }
+
+/* ================= CONFIG-SCHERM ================= */
+function renderConfig(){
+  return '<div class="center-wrap"><div class="logo"><div class="m">🔧</div><h1>Eenmalige instelling</h1>'+
+    '<p>Vul de gegevens van je Supabase-project in.<br>Zie de handleiding, stap 4.</p></div>'+
+    '<div class="card"><div class="field"><label>Project-URL</label><input id="c_url" placeholder="https://xxxx.supabase.co"></div>'+
+    '<div class="field"><label>Anon / public key</label><input id="c_key" placeholder="eyJhbGciOi…"></div>'+
+    '<button class="btn primary" style="width:100%" onclick="saveConfig()">Verbinden</button></div></div>';
+}
+function saveConfig(){
+  const url=document.getElementById('c_url').value.trim().replace(/\/+$/,'');
+  const key=document.getElementById('c_key').value.trim();
+  if(!url.startsWith('https://')||!key){ alert('Vul beide velden correct in.'); return; }
+  CFG={url,key}; localStorage.setItem('travai_cfg',JSON.stringify(CFG));
+  boot();
+}
+
+/* ================= AUTH ================= */
+function renderAuth(){
+  const login=authMode==='login';
+  return '<div class="center-wrap"><div class="logo"><div class="m">🌍</div><h1>TravAI Pro</h1><p>Plan je reizen. Deel ze met wie je wil.</p></div>'+
+    '<div class="msg" id="authMsg"></div>'+
+    '<div class="card"><div class="field"><label>E-mailadres</label><input id="a_email" type="email" autocomplete="email" placeholder="jij@voorbeeld.be"></div>'+
+    '<div class="field"><label>Wachtwoord</label><input id="a_pass" type="password" autocomplete="'+(login?'current-password':'new-password')+'" placeholder="••••••••" onkeydown="if(event.key===\'Enter\')doAuth()"></div>'+
+    '<button class="btn primary" style="width:100%" id="authBtn" onclick="doAuth()">'+(login?'Inloggen':'Account aanmaken')+'</button></div>'+
+    '<div class="switch-auth">'+(login?'Nog geen account? <a onclick="switchAuth()">Registreer</a>':'Al een account? <a onclick="switchAuth()">Log in</a>')+'</div></div>';
+}
+function switchAuth(){ authMode=authMode==='login'?'signup':'login'; render(); }
+function authMsg(t){ const el=document.getElementById('authMsg'); el.textContent=t; el.classList.add('show'); }
+async function doAuth(){
+  const email=document.getElementById('a_email').value.trim();
+  const pass=document.getElementById('a_pass').value;
+  if(!email||pass.length<6){ authMsg('Vul je e-mail in en een wachtwoord van minstens 6 tekens.'); return; }
+  document.getElementById('authBtn').disabled=true;
+  try{
+    if(authMode==='signup'){
+      const {data,error}=await sb.auth.signUp({email,password:pass});
+      if(error) throw error;
+      if(!data.session){ authMsg('Bijna klaar! Bevestig je account via de link in je mailbox en log daarna in.'); authMode='login'; return; }
+      user=data.session.user;
+    } else {
+      const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
+      if(error) throw error;
+      user=data.user;
+    }
+    await afterLogin();
+  }catch(e){ authMsg(vertaalFout(e.message)); }
+  finally{ const b=document.getElementById('authBtn'); if(b) b.disabled=false; }
+}
+function vertaalFout(msg){
+  if(/invalid login/i.test(msg)) return 'Onjuist e-mailadres of wachtwoord.';
+  if(/already registered/i.test(msg)) return 'Dit e-mailadres heeft al een account.';
+  if(/rate limit/i.test(msg)) return 'Te veel pogingen, probeer zo dadelijk opnieuw.';
+  return msg;
+}
+async function afterLogin(){
+  try{ const {data:n}=await sb.rpc('claim_invites'); if(n>0) console.log(n+' uitnodiging(en) geaccepteerd'); }catch(e){}
+  await loadTrips();
+  view='home'; render();
+}
+async function logout(){ await sb.auth.signOut(); user=null; trips=[]; cur=null; view='auth'; render(); }
+
+/* ================= HOME ================= */
+function renderHome(){
+  let h='';
+  if(!trips.length){
+    h='<div class="empty"><div class="big">🌍</div>Nog geen reizen.<br>Tik op <b>+</b> om je eerste reis te plannen!</div>';
+  } else {
+    const now=new Date().toISOString().slice(0,10);
+    const up=trips.filter(t=>!t.end_date||t.end_date>=now);
+    const past=trips.filter(t=>t.end_date&&t.end_date<now).reverse();
+    if(up.length) h+='<div class="section-title">Komende reizen</div>'+up.map(tripCard).join('');
+    if(past.length) h+='<div class="section-title">Vorige reizen</div>'+past.map(tripCard).join('');
+  }
+  h+='<button class="fab home" onclick="sheetTrip()">+</button>';
+  return h;
+}
+function tripCard(t){
+  const [cls,lbl]=status(t);
+  const shared=!canEdit(t);
+  return '<div class="card tap" onclick="openTrip(\''+t.id+'\')">'+
+    '<div class="trip-row"><div class="trip-emoji">'+esc(t.emoji||'✈️')+'</div>'+
+    '<div class="trip-info"><h3>'+esc(t.name)+'</h3>'+
+    (t.dest?'<div class="dest">📍 '+esc(t.dest)+'</div>':'')+
+    '<div class="dates">'+fmtD(t.start_date)+' – '+fmtDY(t.end_date)+'</div></div>'+
+    (shared?'<span class="badge shared">Gedeeld</span>':(cls?'<span class="badge '+cls+'">'+lbl+'</span>':''))+
+    '</div></div>';
+}
+
+/* ================= PLANNING ================= */
+function renderPlan(){
+  const t=cur, days=daysOf(t), edit=canEdit(t);
+  if(!days.length) return '<div class="empty"><div class="big">📅</div>Stel start- en einddatum in via Info.</div>';
+  let h='';
+  days.forEach((d,i)=>{
+    const acts=t.data.acts.filter(a=>a.day===d).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));
+    h+='<div class="day-head"><span class="n">Dag '+(i+1)+'</span><span class="d">'+fmtDagLang(d)+'</span>'+
+       (edit?'<button class="add" onclick="sheetAct(null,\''+d+'\')">+ item</button>':'')+'</div>';
+    if(!acts.length) h+='<div class="card" style="color:var(--muted);font-size:13px">Nog niets gepland.</div>';
+    acts.forEach(a=>{
+      const ic=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
+      h+='<div class="card">'+(edit?'<button class="kebab" onclick="sheetAct(\''+a.id+'\')">✎</button>':'')+
+        '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+'</div><div class="body">'+
+        '<h4>'+ic+' '+esc(a.title)+'</h4>'+
+        (a.addr?'<div class="addr">📍 '+esc(a.addr)+'</div><a class="maplink" target="_blank" href="'+mapsUrl(a.addr)+'">🗺️ Kaarten</a><a class="maplink" target="_blank" href="'+gmapsUrl(a.addr)+'">🌐 Google Maps</a>':'')+
+        (a.note?'<div class="note">'+esc(a.note)+'</div>':'')+
+        '</div></div></div>';
+    });
+  });
+  return h;
+}
+
+/* ================= HOTELS ================= */
+function renderHotels(){
+  const t=cur, edit=canEdit(t);
+  const hs=[...t.data.hotels].sort((a,b)=>(a.cin||'').localeCompare(b.cin||''));
+  let h='';
+  if(!hs.length) h='<div class="empty"><div class="big">🏨</div>Nog geen accommodaties.'+(edit?'<br>Tik op <b>+</b> om er een toe te voegen.':'')+'</div>';
+  hs.forEach(x=>{
+    h+='<div class="card hotel">'+(edit?'<button class="kebab" onclick="sheetHotel(\''+x.id+'\')">✎</button>':'')+
+      '<h3>🏨 '+esc(x.name)+'</h3>'+
+      (x.addr?'<div class="line">📍 '+esc(x.addr)+'</div><a class="maplink" target="_blank" href="'+mapsUrl(x.addr)+'">🗺️ Kaarten</a><a class="maplink" target="_blank" href="'+gmapsUrl(x.addr)+'">🌐 Google Maps</a>':'')+
+      '<div class="io"><div>Check-in<b>'+(x.cin?fmtDY(x.cin):'—')+'</b></div><div>Check-out<b>'+(x.cout?fmtDY(x.cout):'—')+'</b></div></div>'+
+      (x.ref?'<div class="line" style="margin-top:8px">🎫 Boekingsnr: <b>'+esc(x.ref)+'</b></div>':'')+
+      (x.tel?'<div class="line">📞 <a href="tel:'+esc(x.tel)+'" style="color:var(--teal)">'+esc(x.tel)+'</a></div>':'')+
+      (x.note?'<div class="line" style="font-style:italic">'+esc(x.note)+'</div>':'')+
+      '</div>';
+  });
+  if(edit) h+='<button class="fab" onclick="sheetHotel()">+</button>';
+  return h;
+}
+
+/* ================= BUDGET ================= */
+function renderBudget(){
+  const t=cur, edit=canEdit(t);
+  const exps=[...t.data.exps].sort((a,b)=>(b.day||'').localeCompare(a.day||''));
+  const total=exps.reduce((s,x)=>s+(+x.amount||0),0);
+  let h='<div class="bud-total"><div class="lbl">Totaal uitgegeven</div><div class="amt">'+eur(total)+'</div></div>';
+  const perCat={};
+  exps.forEach(x=>{ perCat[x.cat]=(perCat[x.cat]||0)+(+x.amount||0); });
+  const cats=Object.keys(perCat);
+  if(cats.length){
+    h+='<div class="card">'+cats.map(c=>{
+      const [ic,lb]=EXP_CATS[c]||EXP_CATS.other;
+      return '<div class="bud-cat"><span>'+ic+' '+lb+'</span><b>'+eur(perCat[c])+'</b></div>';
+    }).join('')+'</div>';
+  }
+  if(!exps.length) h+='<div class="empty"><div class="big">💶</div>Nog geen uitgaven.'+(edit?'<br>Tik op <b>+</b> om er een toe te voegen.':'')+'</div>';
+  exps.forEach(x=>{
+    const [ic]=EXP_CATS[x.cat]||EXP_CATS.other;
+    h+='<div class="card">'+(edit?'<button class="kebab" onclick="sheetExp(\''+x.id+'\')">✎</button>':'')+
+      '<div class="exp"><span class="ic">'+ic+'</span><div class="body"><h4>'+esc(x.desc)+'</h4>'+
+      '<div class="sub2">'+(x.day?fmtDY(x.day):'')+'</div></div><span class="amt" style="margin-right:'+(edit?'26':'0')+'px">'+eur(+x.amount||0)+'</span></div></div>';
+  });
+  if(edit) h+='<button class="fab" onclick="sheetExp()">+</button>';
+  return h;
+}
+
+/* ================= LIJSTEN (to-do + paklijst) ================= */
+let listMode='todos';
+function renderLists(){
+  const t=cur, edit=canEdit(t);
+  let h='<div class="seg"><button class="'+(listMode==='todos'?'on':'')+'" onclick="listMode=\'todos\';render()">✅ To-do</button>'+
+    '<button class="'+(listMode==='pack'?'on':'')+'" onclick="listMode=\'pack\';render()">🎒 Paklijst</button></div>';
+  const arr=t.data[listMode];
+  if(edit) h+='<div class="inline-add"><input id="listIn" placeholder="'+(listMode==='todos'?'Bijv. reisverzekering regelen…':'Bijv. zonnecrème…')+'" onkeydown="if(event.key===\'Enter\')addListItem()"><button onclick="addListItem()">+</button></div>';
+  if(!arr.length) h+='<div class="empty"><div class="big">'+(listMode==='todos'?'✅':'🎒')+'</div>Nog leeg.</div>';
+  const open=arr.filter(x=>!x.done), done=arr.filter(x=>x.done);
+  [...open,...done].forEach(x=>{
+    h+='<div class="card todo '+(x.done?'done':'')+'"><input type="checkbox" '+(x.done?'checked':'')+' '+(edit?'':'disabled')+' onchange="toggleListItem(\''+x.id+'\')"><span>'+esc(x.text)+'</span>'+
+       (edit?'<button class="del" onclick="delListItem(\''+x.id+'\')">🗑</button>':'')+'</div>';
+  });
+  return h;
+}
+async function addListItem(){
+  const el=document.getElementById('listIn'); const v=el.value.trim(); if(!v) return;
+  cur.data[listMode].push({id:uid(),text:v,done:false}); await pushData(); render();
+}
+async function toggleListItem(id){ const x=cur.data[listMode].find(y=>y.id===id); x.done=!x.done; await pushData(); render(); }
+async function delListItem(id){ cur.data[listMode]=cur.data[listMode].filter(y=>y.id!==id); await pushData(); render(); }
+
+/* ================= INFO & DELEN ================= */
+function renderInfo(){
+  const t=cur, edit=canEdit(t);
+  let h='<div class="card"><div class="field"><label>Notities voor deze reis</label>'+
+    '<textarea id="tripNotes" rows="5" placeholder="Vluchtnummers, tips, noodinfo…" '+(edit?'onchange="saveNotes()"':'readonly')+'>'+esc(t.data.notes)+'</textarea></div></div>';
+  if(edit){
+    h+='<div class="btns" style="margin-top:4px"><button class="btn ghost" onclick="sheetTrip(\''+t.id+'\')">✎ Reis bewerken</button></div>';
+    h+='<div class="section-title">Delen (alleen-lezen)</div>'+
+      '<div class="card"><div class="inline-add" style="margin-bottom:8px"><input id="invIn" type="email" placeholder="e-mailadres genodigde"><button onclick="invite()">Uitnodigen</button></div>'+
+      '<div id="memberList" style="font-size:13px;color:var(--muted)">Leden laden…</div></div>';
+  } else {
+    h+='<div class="section-title">Gedeelde reis</div>'+
+      '<div class="card" style="font-size:14px;color:var(--muted)">Deze reis is met jou gedeeld. Alleen de eigenaar kan wijzigen.'+
+      '<div class="btns"><button class="btn danger" style="flex:1" onclick="leaveTrip()">Reis verlaten</button></div></div>';
+  }
+  h+='<div class="section-title">Back-up</div>'+
+    '<div class="btns" style="margin-top:0"><button class="btn ghost" onclick="exportData()">⬇️ Exporteer alle reizen (JSON)</button></div>';
+  return h;
+}
+async function saveNotes(){ cur.data.notes=document.getElementById('tripNotes').value; await pushData(); }
+async function loadMembers(){
+  if(!canEdit(cur)) return;
+  const el=document.getElementById('memberList'); if(!el) return;
+  const [{data:mem},{data:inv}]=await Promise.all([
+    sb.from('trip_members').select('user_id,email,role').eq('trip_id',cur.id),
+    sb.from('trip_invites').select('id,email').eq('trip_id',cur.id)
+  ]);
+  let h='';
+  h+='<div class="member"><span class="em"><b>'+esc(user.email)+'</b></span><span class="rl">eigenaar</span></div>';
+  (mem||[]).forEach(x=>{ h+='<div class="member"><span class="em">'+esc(x.email||x.user_id)+'</span><span class="rl">kijker</span><button title="Verwijderen" onclick="removeMember(\''+x.user_id+'\')">✕</button></div>'; });
+  (inv||[]).forEach(x=>{ h+='<div class="member"><span class="em">'+esc(x.email)+'</span><span class="rl">uitgenodigd</span><button title="Intrekken" onclick="removeInvite(\''+x.id+'\')">✕</button></div>'; });
+  el.innerHTML=h;
+}
+async function invite(){
+  const el=document.getElementById('invIn'); const email=el.value.trim().toLowerCase();
+  if(!/^\S+@\S+\.\S+$/.test(email)){ alert('Geef een geldig e-mailadres.'); return; }
+  if(email===user.email){ alert('Dat ben je zelf 🙂'); return; }
+  const {error}=await sb.from('trip_invites').insert({trip_id:cur.id,email,role:'viewer'});
+  if(error){ alert('Uitnodigen mislukt: '+error.message); return; }
+  el.value='';
+  alert('Uitgenodigd! Zodra '+email+' een account aanmaakt (of opnieuw inlogt), verschijnt deze reis automatisch.');
+  loadMembers();
+}
+async function removeMember(uid_){ if(!confirm('Deze persoon de toegang ontnemen?'))return; await sb.from('trip_members').delete().eq('trip_id',cur.id).eq('user_id',uid_); loadMembers(); }
+async function removeInvite(id){ await sb.from('trip_invites').delete().eq('id',id); loadMembers(); }
+async function leaveTrip(){
+  if(!confirm('Deze gedeelde reis verlaten?')) return;
+  await sb.from('trip_members').delete().eq('trip_id',cur.id).eq('user_id',user.id);
+  await loadTrips(); goHome();
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(trips,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='travai-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+}
+
+/* ================= SHEETS ================= */
+const overlay=document.getElementById('overlay'), sheet=document.getElementById('sheet');
+overlay.addEventListener('click',e=>{ if(e.target===overlay) closeSheet(); });
+function openSheet(html){ sheet.innerHTML=html; overlay.classList.add('show'); }
+function closeSheet(){ overlay.classList.remove('show'); }
+
+let pickedEmoji='✈️', pickedType='act', pickedCat='other';
+function pickEmoji(e,b){ pickedEmoji=e; sheet.querySelectorAll('.emoji-pick button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }
+function pickType(t,b){ pickedType=t; sheet.querySelectorAll('.type-pick button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }
+function pickCat(c,b){ pickedCat=c; sheet.querySelectorAll('.type-pick button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }
+
+/* --- reis --- */
+function sheetTrip(id){
+  const t=id?trips.find(x=>x.id===id):null;
+  pickedEmoji=t?(t.emoji||'✈️'):'✈️';
+  openSheet('<h2>'+(t?'Reis bewerken':'Nieuwe reis')+'</h2>'+
+    '<div class="field"><label>Naam van de reis</label><input id="f_name" placeholder="Bijv. Zomer in Italië" value="'+esc(t?t.name:'')+'"></div>'+
+    '<div class="field"><label>Bestemming</label><input id="f_dest" placeholder="Bijv. Rome, Italië" value="'+esc(t?t.dest:'')+'"></div>'+
+    '<div class="row2"><div class="field"><label>Vertrek</label><input id="f_start" type="date" value="'+(t?(t.start_date||''):'')+'"></div>'+
+    '<div class="field"><label>Terug</label><input id="f_end" type="date" value="'+(t?(t.end_date||''):'')+'"></div></div>'+
+    '<div class="field"><label>Icoon</label><div class="emoji-pick">'+EMOJIS.map(e=>'<button class="'+(e===pickedEmoji?'on':'')+'" onclick="pickEmoji(\''+e+'\',this)">'+e+'</button>').join('')+'</div></div>'+
+    '<div class="btns">'+(t?'<button class="btn danger" onclick="delTrip(\''+t.id+'\')">🗑</button>':'')+
+    '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
+    '<button class="btn primary" onclick="saveTrip(\''+(t?t.id:'')+'\')">Bewaar</button></div>');
+}
+async function saveTrip(id){
+  const name=document.getElementById('f_name').value.trim();
+  if(!name){ alert('Geef de reis een naam.'); return; }
+  let start=document.getElementById('f_start').value||null, end=document.getElementById('f_end').value||null;
+  if(start&&end&&end<start){ const tmp=start; start=end; end=tmp; }
+  const row={name, dest:document.getElementById('f_dest').value.trim(), start_date:start, end_date:end, emoji:pickedEmoji, updated_at:new Date().toISOString()};
+  let error;
+  if(id){ ({error}=await sb.from('trips').update(row).eq('id',id)); }
+  else { row.owner=user.id; row.data={acts:[],hotels:[],todos:[],pack:[],exps:[],notes:''}; ({error}=await sb.from('trips').insert(row)); }
+  if(error){ alert('Bewaren mislukt: '+error.message); return; }
+  await loadTrips(); closeSheet(); render();
+}
+async function delTrip(id){
+  if(!confirm('Deze reis en alle gegevens definitief verwijderen?')) return;
+  const {error}=await sb.from('trips').delete().eq('id',id);
+  if(error){ alert('Verwijderen mislukt: '+error.message); return; }
+  await loadTrips(); closeSheet(); goHome();
+}
+
+/* --- planning-item --- */
+function sheetAct(id,day){
+  const a=id?cur.data.acts.find(x=>x.id===id):null;
+  pickedType=a?(a.type||'act'):'act';
+  const days=daysOf(cur);
+  const sel=days.map((d,i)=>'<option value="'+d+'" '+((a?a.day:day)===d?'selected':'')+'>Dag '+(i+1)+' — '+fmtDagLang(d)+'</option>').join('');
+  openSheet('<h2>'+(a?'Item bewerken':'Item toevoegen')+'</h2>'+
+    '<div class="field"><label>Type</label><div class="type-pick">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" onclick="pickType(\''+k+'\',this)">'+v[0]+' '+v[1]+'</button>').join('')+'</div></div>'+
+    '<div class="field"><label>Wat</label><input id="f_title" placeholder="Bijv. Colosseum bezoeken / Vlucht BRU→FCO" value="'+esc(a?a.title:'')+'"></div>'+
+    '<div class="row2"><div class="field"><label>Dag</label><select id="f_day">'+sel+'</select></div>'+
+    '<div class="field"><label>Tijd</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'"></div></div>'+
+    '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Piazza del Colosseo 1, Roma" value="'+esc(a?a.addr:'')+'"></div>'+
+    '<div class="field"><label>Notitie (optioneel)</label><textarea id="f_note" rows="2">'+esc(a?a.note:'')+'</textarea></div>'+
+    '<div class="btns">'+(a?'<button class="btn danger" onclick="delAct(\''+a.id+'\')">🗑</button>':'')+
+    '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
+    '<button class="btn primary" onclick="saveAct(\''+(a?a.id:'')+'\')">Bewaar</button></div>');
+}
+async function saveAct(id){
+  const title=document.getElementById('f_title').value.trim();
+  if(!title){ alert('Geef een omschrijving.'); return; }
+  const data={ title, type:pickedType, day:document.getElementById('f_day').value, time:document.getElementById('f_time').value,
+    addr:document.getElementById('f_addr').value.trim(), note:document.getElementById('f_note').value.trim() };
+  if(id) Object.assign(cur.data.acts.find(x=>x.id===id), data);
+  else cur.data.acts.push(Object.assign({id:uid()},data));
+  await pushData(); closeSheet(); render();
+}
+async function delAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); await pushData(); closeSheet(); render(); }
+
+/* --- hotel --- */
+function sheetHotel(id){
+  const x=id?cur.data.hotels.find(y=>y.id===id):null;
+  openSheet('<h2>'+(x?'Accommodatie bewerken':'Accommodatie toevoegen')+'</h2>'+
+    '<div class="field"><label>Naam</label><input id="f_hname" placeholder="Bijv. Hotel Roma Centro" value="'+esc(x?x.name:'')+'"></div>'+
+    '<div class="field"><label>Adres</label><input id="f_haddr" placeholder="Via Nazionale 22, Roma" value="'+esc(x?x.addr:'')+'"></div>'+
+    '<div class="row2"><div class="field"><label>Check-in</label><input id="f_cin" type="date" value="'+(x?(x.cin||''):'')+'"></div>'+
+    '<div class="field"><label>Check-out</label><input id="f_cout" type="date" value="'+(x?(x.cout||''):'')+'"></div></div>'+
+    '<div class="row2"><div class="field"><label>Boekingsnr</label><input id="f_ref" value="'+esc(x?x.ref:'')+'"></div>'+
+    '<div class="field"><label>Telefoon</label><input id="f_tel" type="tel" value="'+esc(x?x.tel:'')+'"></div></div>'+
+    '<div class="field"><label>Notitie</label><textarea id="f_hnote" rows="2">'+esc(x?x.note:'')+'</textarea></div>'+
+    '<div class="btns">'+(x?'<button class="btn danger" onclick="delHotel(\''+x.id+'\')">🗑</button>':'')+
+    '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
+    '<button class="btn primary" onclick="saveHotel(\''+(x?x.id:'')+'\')">Bewaar</button></div>');
+}
+async function saveHotel(id){
+  const name=document.getElementById('f_hname').value.trim();
+  if(!name){ alert('Geef een naam.'); return; }
+  const data={ name, addr:document.getElementById('f_haddr').value.trim(),
+    cin:document.getElementById('f_cin').value, cout:document.getElementById('f_cout').value,
+    ref:document.getElementById('f_ref').value.trim(), tel:document.getElementById('f_tel').value.trim(),
+    note:document.getElementById('f_hnote').value.trim() };
+  if(id) Object.assign(cur.data.hotels.find(y=>y.id===id), data);
+  else cur.data.hotels.push(Object.assign({id:uid()},data));
+  await pushData(); closeSheet(); render();
+}
+async function delHotel(id){ cur.data.hotels=cur.data.hotels.filter(y=>y.id!==id); await pushData(); closeSheet(); render(); }
+
+/* --- uitgave --- */
+function sheetExp(id){
+  const x=id?cur.data.exps.find(y=>y.id===id):null;
+  pickedCat=x?(x.cat||'other'):'other';
+  openSheet('<h2>'+(x?'Uitgave bewerken':'Uitgave toevoegen')+'</h2>'+
+    '<div class="field"><label>Omschrijving</label><input id="f_edesc" placeholder="Bijv. diner Trastevere" value="'+esc(x?x.desc:'')+'"></div>'+
+    '<div class="row2"><div class="field"><label>Bedrag (€)</label><input id="f_eamt" type="number" step="0.01" inputmode="decimal" value="'+(x?x.amount:'')+'"></div>'+
+    '<div class="field"><label>Datum</label><input id="f_eday" type="date" value="'+(x?(x.day||''):'')+'"></div></div>'+
+    '<div class="field"><label>Categorie</label><div class="type-pick">'+Object.entries(EXP_CATS).map(([k,v])=>'<button class="'+(k===pickedCat?'on':'')+'" onclick="pickCat(\''+k+'\',this)">'+v[0]+' '+v[1]+'</button>').join('')+'</div></div>'+
+    '<div class="btns">'+(x?'<button class="btn danger" onclick="delExp(\''+x.id+'\')">🗑</button>':'')+
+    '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
+    '<button class="btn primary" onclick="saveExp(\''+(x?x.id:'')+'\')">Bewaar</button></div>');
+}
+async function saveExp(id){
+  const desc=document.getElementById('f_edesc').value.trim();
+  const amount=parseFloat(document.getElementById('f_eamt').value);
+  if(!desc||isNaN(amount)){ alert('Vul omschrijving en bedrag in.'); return; }
+  const data={desc, amount, cat:pickedCat, day:document.getElementById('f_eday').value};
+  if(id) Object.assign(cur.data.exps.find(y=>y.id===id), data);
+  else cur.data.exps.push(Object.assign({id:uid()},data));
+  await pushData(); closeSheet(); render();
+}
+async function delExp(id){ cur.data.exps=cur.data.exps.filter(y=>y.id!==id); await pushData(); closeSheet(); render(); }
+
+/* ================= BOOT ================= */
+async function boot(){
+  if(!CFG){ view='config'; render(); return; }
+  try{
+    sb = window.supabase.createClient(CFG.url, CFG.key);
+  }catch(e){
+    localStorage.removeItem('travai_cfg'); CFG=null; view='config'; render(); return;
+  }
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){ user=session.user; await afterLogin(); }
+  else { view='auth'; render(); }
+}
+boot();
+</script>
+</body>
+</html>
