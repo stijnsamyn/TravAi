@@ -391,6 +391,21 @@
   .msg{background:var(--amber-soft);color:#8a5a00;border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:14px;display:none;font-weight:600}
   .msg.show{display:block}
   .spin{text-align:center;padding:60px 0;color:var(--muted)}
+  /* instellingen-secties */
+  .set-sec{
+    display:flex;align-items:center;gap:8px;
+    margin:20px 0 10px;padding-top:16px;border-top:1px solid var(--border);
+    font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
+  }
+  .set-sec:first-of-type{border-top:none;padding-top:0;margin-top:6px}
+  .set-sec .ti{font-size:15px;color:var(--green-dark)}
+  .set-toggle{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:10px 2px;font-size:15px;font-weight:600;cursor:pointer;
+  }
+  .set-toggle span small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:1px}
+  .set-toggle input{width:24px;height:24px;accent-color:var(--green);flex:none}
+  .set-hint{font-size:12.5px;color:var(--muted);margin:-4px 0 6px}
   .version{
     position:fixed;right:8px;bottom:calc(6px + env(safe-area-inset-bottom));z-index:250;
     font-size:10px;font-weight:700;color:var(--muted);
@@ -415,7 +430,7 @@ const GMAPS_KEY='AIzaSyCWDRxNNWM7bbM0jyNqM0ccCMj4Zr-Tsgc'; // Google Places API-
 const BUFFER_MIN=15;        // buffer bij vertrekadvies
 
 /* instellingen (per toestel bewaard) */
-let SETTINGS={veh:'car',range:330,charge:25,nav:'google',colAct:'#4263eb',colHotel:'#f59f00',colStart:'#2fbe8f'};
+let SETTINGS={veh:'car',range:330,charge:25,nav:'google',colAct:'#4263eb',colHotel:'#f59f00',colStart:'#2fbe8f',showBudget:true,showLists:true};
 try{ Object.assign(SETTINGS, JSON.parse(localStorage.getItem('travai_settings')||'{}')); }catch(e){}
 function applyColors(){
   const r=document.documentElement.style;
@@ -432,8 +447,9 @@ let view='loading';        // auth | home | trip
 let tab='route';           // route | today | days | cal | budget | lists
 let dayView=null;          // datum die de Vandaag-tab toont
 let listMode='todos';
-let daysMode='cards';      // cards | schema (reisschema-weergave)
-let routeMode='macro';     // macro (alleen bestemmingen) | micro (alles in volgorde)
+let daysMode='cards';      // (verouderd, alleen nog intern)
+let routeMode='macro';     // Plan: macro (alleen bestemmingen) | micro (alles in volgorde)
+let diaryMode=null;        // Dagboek: macro (kalender) | micro (dag-detail); null = automatisch
 let mapOn=true;
 let MAP=null, ROUTELAYER=null, MAPVIEW=null;
 let SCROLL_TODAY=false;
@@ -607,7 +623,11 @@ function render(){
       '<button class="pill" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+' nachten</button>'+
       '<button class="btn-share" onclick="sheetShare()">'+ic('share')+' Delen</button>';
     tabbar.style.display='flex';
-    const tabs=[['route','route','Route'],['today','sun','Vandaag'],['days','calendar','Dagen'],['cal','calendar-month','Kalender'],['budget','wallet','Budget'],['lists','list-check','Lijsten']];
+    if(['today','days','cal'].includes(tab)) tab='diary'; /* oude tabnamen opvangen */
+    if((tab==='budget'&&!SETTINGS.showBudget)||(tab==='lists'&&!SETTINGS.showLists)) tab='route';
+    const tabs=[['route','route','Plan'],['diary','book','Dagboek']];
+    if(SETTINGS.showBudget) tabs.push(['budget','wallet','Budget']);
+    if(SETTINGS.showLists) tabs.push(['lists','list-check','Lijsten']);
     tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+ic(x[1])+' '+x[2]+'</button>').join('')+
       '<span class="spacer"></span>'+
       '<button class="tabb" onclick="sheetNotes()">'+ic('notes')+' Notities</button>'+
@@ -623,51 +643,65 @@ function render(){
       if(routeMode==='micro') computeSchema();
     } else {
       m.innerHTML=note+'<div class="plainwrap">'+
-        (tab==='today'?renderToday():tab==='days'?renderDays():tab==='cal'?renderCal():tab==='budget'?renderBudget():renderLists())+'</div>';
-      if(tab==='days'||tab==='today'){
+        (tab==='diary'?renderDiary():tab==='budget'?renderBudget():renderLists())+'</div>';
+      if(tab==='diary'&&diaryMode==='micro'){
         computeDepartures(); computeTravel(); computeWeather();
-        if(tab==='today'){ computeDayLeg(); mountDayMap(dayView); computeDayTotal(); }
-        if(tab==='days'&&SCROLL_TODAY){
-          SCROLL_TODAY=false;
-          const td=new Date().toISOString().slice(0,10);
-          setTimeout(()=>{ const e=document.getElementById('day-'+td); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
-        }
+        computeDayLeg(); mountDayMap(dayView); computeDayTotal();
       }
     }
     loadMembers();
   }
 }
-function setTab(x){ if(x==='days'&&tab!=='days') SCROLL_TODAY=true; tab=x; render(); window.scrollTo(0,0); }
+function setTab(x){ tab=x; render(); window.scrollTo(0,0); }
 function goHome(){ view='home'; cur=null; if(MAP){MAP.remove();MAP=null;} render(); }
-function openTrip(id){ cur=trips.find(x=>x.id===id); view='trip'; tab='route'; dayView=null; MAPVIEW=null; CATACTIVE=null; CATRES=[]; mapOn=window.innerWidth>=600; render(); window.scrollTo(0,0); }
+function openTrip(id){ cur=trips.find(x=>x.id===id); view='trip'; tab='route'; dayView=null; diaryMode=null; MAPVIEW=null; CATACTIVE=null; CATRES=[]; mapOn=window.innerWidth>=600; render(); window.scrollTo(0,0); }
 function toggleMap(){ mapOn=!mapOn; render(); }
 
 /* ================= INSTELLINGEN ================= */
+/* opgebouwd in secties zodat er makkelijk opties bij kunnen */
+function setSec(icon,title){ return '<div class="set-sec">'+ic(icon)+' '+title+'</div>'; }
+function setToggle(id,label,checked,hint){
+  return '<label class="set-toggle"><span>'+label+(hint?'<small>'+hint+'</small>':'')+'</span>'+
+    '<input type="checkbox" id="'+id+'"'+(checked?' checked':'')+'></label>';
+}
 function sheetSettings(){
   openSheet('<h2>'+ic('settings')+' Instellingen</h2>'+
+
+    setSec('layout-list','Weergave')+
+    setToggle('s_showbudget','Budget-tab tonen',SETTINGS.showBudget!==false,'Uitgaven bijhouden per reis')+
+    setToggle('s_showlists','Lijsten-tab tonen',SETTINGS.showLists!==false,'To-do en paklijst')+
+
+    setSec('car','Voertuig')+
     '<div class="field"><label>Mijn voertuig</label><select id="s_veh">'+
       '<option value="car"'+(SETTINGS.veh==='car'?' selected':'')+'>Gewone auto (benzine/diesel)</option>'+
       '<option value="ev"'+(SETTINGS.veh==='ev'?' selected':'')+'>Elektrische auto (met laadstop-advies)</option>'+
     '</select></div>'+
     '<div class="row2"><div class="field"><label>Actieradius (km)</label><input id="s_range" type="number" inputmode="numeric" value="'+SETTINGS.range+'"></div>'+
     '<div class="field"><label>Laadtijd per stop (min)</label><input id="s_charge" type="number" inputmode="numeric" value="'+SETTINGS.charge+'"></div></div>'+
-    '<p style="font-size:12.5px;color:var(--muted);margin:-4px 0 6px">Actieradius en laadtijd gelden alleen voor elektrisch. Richtwaarde Tesla Model Y: 330 km op de snelweg, 25 min per laadstop.</p>'+
+    '<p class="set-hint">Alleen voor elektrisch. Richtwaarde Tesla Model Y: 330 km snelweg, 25 min per laadstop.</p>'+
+
+    setSec('navigation','Navigatie')+
     '<div class="field"><label>Navigeren met</label><select id="s_nav">'+
       '<option value="google"'+(SETTINGS.nav==='google'?' selected':'')+'>Google Maps</option>'+
       '<option value="waze"'+(SETTINGS.nav==='waze'?' selected':'')+'>Waze</option>'+
       '<option value="apple"'+(SETTINGS.nav==='apple'?' selected':'')+'>Apple Kaarten</option>'+
       '<option value="tesla"'+(SETTINGS.nav==='tesla'?' selected':'')+'>Tesla (via deelmenu naar je auto)</option>'+
     '</select></div>'+
-    '<p style="font-size:12.5px;color:var(--muted);margin:-4px 0 6px">Tesla: de bestemming wordt gedeeld; kies in het deelmenu de Tesla-app en hij verschijnt in de navigatie van je auto.</p>'+
-    '<div class="field"><label>Kleuren van de iconen</label><div class="row2">'+
+    '<p class="set-hint">Tesla: de bestemming wordt gedeeld; kies in het deelmenu de Tesla-app en hij verschijnt in je auto.</p>'+
+
+    setSec('palette','Kleuren')+
+    '<div class="row2">'+
       '<div class="field" style="margin:0"><label style="text-transform:none">Activiteiten</label><input id="s_colact" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colAct+'"></div>'+
       '<div class="field" style="margin:0"><label style="text-transform:none">Slaapplek</label><input id="s_colhotel" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colHotel+'"></div>'+
       '<div class="field" style="margin:0"><label style="text-transform:none">Vertrek/stop</label><input id="s_colstart" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colStart+'"></div>'+
-    '</div></div>'+
+    '</div>'+
+
     '<div class="btns"><button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveSettings()">Bewaar</button></div>');
 }
 function saveSettings(){
+  SETTINGS.showBudget=document.getElementById('s_showbudget').checked;
+  SETTINGS.showLists=document.getElementById('s_showlists').checked;
   SETTINGS.veh=document.getElementById('s_veh').value;
   SETTINGS.range=Math.max(50,+document.getElementById('s_range').value||330);
   SETTINGS.charge=Math.max(5,+document.getElementById('s_charge').value||25);
@@ -677,6 +711,7 @@ function saveSettings(){
   SETTINGS.colStart=document.getElementById('s_colstart').value;
   localStorage.setItem('travai_settings',JSON.stringify(SETTINGS));
   applyColors();
+  if((tab==='budget'&&!SETTINGS.showBudget)||(tab==='lists'&&!SETTINGS.showLists)) tab='route';
   closeSheet(); render();
 }
 /* navigeer naar een punt met de gekozen app (Google/Waze/Apple/Tesla) */
@@ -829,7 +864,7 @@ async function chgNights(id,d){
   s.nights=Math.max(0,(s.nights||0)+d);
   await pushData(); render();
 }
-function gotoDay(day){ tab='days'; render(); setTimeout(()=>{ const el=document.getElementById('day-'+day); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },60); }
+function gotoDay(day){ tab='diary'; diaryMode='micro'; dayView=day; render(); window.scrollTo(0,0); }
 function toggleStop(id){ EXPANDED[id]=!EXPANDED[id]; render(); }
 
 /* dagplanning binnen een opengeklapte stop */
@@ -1480,7 +1515,7 @@ async function computeSchema(){
       if(A.lat==null||B.lat==null){ if(el) el.querySelector('.mid').textContent='locatie onbekend'; continue; }
       const tm=travModeOf(B);
       const c=await osrm(A,B,tm);
-      if(!cur||!((tab==='days'&&daysMode==='schema')||(tab==='route'&&routeMode==='micro'))) return;
+      if(!cur||!(tab==='route'&&routeMode==='micro')) return;
       dayKm+=c.km; dayMin+=c.min; hops++;
       const tmin=Math.ceil(c.min);
       const bt=B.act?hmToMin(B.act.time):null;
@@ -1560,7 +1595,16 @@ async function dragEnd(){
   await pushData(); render();
 }
 
-/* ================= VANDAAG-TAB ================= */
+/* ================= DAGBOEK-TAB ================= */
+function renderDiary(){
+  if(!diaryMode){
+    const days=daysOf(cur), td=new Date().toISOString().slice(0,10);
+    diaryMode=days.includes(td)?'micro':'macro'; /* tijdens de reis: open op vandaag */
+  }
+  let h='<div class="seg"><button class="'+(diaryMode==='macro'?'on':'')+'" onclick="diaryMode=\'macro\';render()">'+ic('calendar-month')+' Kalender</button>'+
+    '<button class="'+(diaryMode==='micro'?'on':'')+'" onclick="diaryMode=\'micro\';render()">'+ic('sun')+' Dag</button></div>';
+  return h+(diaryMode==='macro'?renderCal():renderToday());
+}
 function renderToday(){
   const t=cur, days=daysOf(t), edit=canEdit(t);
   if(!days.length) return '<div class="empty"><div class="big">'+ic('sun')+'</div>Stel eerst start- en einddatum in.</div>';
