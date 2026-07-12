@@ -171,8 +171,10 @@
   .poi-pop{max-height:250px;overflow-y:auto;min-width:210px}
   .poi-pop h4{font-size:13px;margin-bottom:6px;font-family:'Quicksand',sans-serif}
   .poi-row{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid #f0f3f5;font-size:12.5px;font-family:'Quicksand',sans-serif}
-  .poi-row .nm{flex:1}
-  .poi-row button{background:var(--green-soft);border:none;border-radius:99px;width:22px;height:22px;color:var(--green-ink);font-weight:700;cursor:pointer}
+  .poi-row .nm{flex:1;min-width:0}
+  .poi-row .nm small{display:block;color:var(--muted);font-size:11px;font-weight:600;margin-top:1px}
+  .poi-row img{width:36px;height:36px;border-radius:8px;object-fit:cover;flex:none}
+  .poi-row button{background:var(--green-soft);border:none;border-radius:99px;width:22px;height:22px;color:var(--green-ink);font-weight:700;cursor:pointer;flex:none}
   /* ===== cards / days ===== */
   .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px;position:relative}
   .card.tap{cursor:pointer;transition:transform .08s}
@@ -330,6 +332,7 @@
 /* ================= CONFIG & STATE ================= */
 const SB_URL='https://ddynbjwemgtcwienupnp.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkeW5iandlbWd0Y3dpZW51cG5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NTI4NTAsImV4cCI6MjA5OTQyODg1MH0.wyW12xbgqp2S9P4yCOo1DW0TEFnYsfpD7g8uFeUf73I';
+const GMAPS_KEY='';         // Google Places API-key (leeg = gratis OpenStreetMap-verkenning)
 const RANGE_KM=330;         // praktische actieradius Tesla Model Y (snelweg)
 const CHARGE_MIN=25;        // minuten per laadstop (Supercharger)
 const BUFFER_MIN=15;        // buffer bij vertrekadvies
@@ -775,29 +778,68 @@ function drawRoute(){
 }
 
 /* --- POI's bij klik op kaart --- */
-const POI_EMO={attraction:'🎯',museum:'🏛️',viewpoint:'🌄',gallery:'🖼️',zoo:'🦁',theme_park:'🎢',castle:'🏰',monument:'🗿',memorial:'🗿',ruins:'🏛️',restaurant:'🍽️',cafe:'☕',park:'🌳'};
+const POI_EMO={attraction:'🎯',tourist_attraction:'🎯',museum:'🏛️',viewpoint:'🌄',gallery:'🖼️',art_gallery:'🖼️',zoo:'🦁',theme_park:'🎢',amusement_park:'🎢',castle:'🏰',historical_landmark:'🏰',monument:'🗿',memorial:'🗿',ruins:'🏛️',restaurant:'🍽️',cafe:'☕',park:'🌳',church:'⛪'};
 let POIS=[];
+function poiPopupHtml(){
+  return '<div class="poi-pop"><h4>In de buurt te doen:</h4>'+POIS.map((p,i)=>
+    '<div class="poi-row">'+
+    (p.photo?'<img src="'+p.photo+'" alt="">':'<span>'+(POI_EMO[p.kind]||'📍')+'</span>')+
+    '<span class="nm">'+esc(p.name)+
+    (p.rating?'<small>⭐ '+p.rating+(p.ratings?' ('+p.ratings+')':'')+(p.opens?' · opent '+p.opens:'')+'</small>':'')+
+    '</span>'+
+    (canEdit(cur)?'<button title="Toevoegen aan planning" onclick="addPoi('+i+')">+</button>':'')+'</div>').join('')+'</div>';
+}
 async function poiLookup(ll){
-  const q='[out:json][timeout:12];(nwr(around:900,'+ll.lat+','+ll.lng+')[tourism~"attraction|museum|viewpoint|gallery|zoo|theme_park"][name];nwr(around:900,'+ll.lat+','+ll.lng+')[historic~"castle|monument|memorial|ruins"][name];nwr(around:700,'+ll.lat+','+ll.lng+')[amenity~"restaurant|cafe"][name];nwr(around:900,'+ll.lat+','+ll.lng+')[leisure=park][name];);out center 20;';
-  const pop=L.popup({maxWidth:290}).setLatLng(ll).setContent('<div class="poi-pop">Zoeken wat hier te doen is…</div>').openOn(MAP);
+  const pop=L.popup({maxWidth:300}).setLatLng(ll).setContent('<div class="poi-pop">Zoeken wat hier te doen is…</div>').openOn(MAP);
   try{
-    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
-    const js=await r.json();
-    POIS=(js.elements||[]).map(e=>({
-      name:e.tags&&e.tags.name, lat:e.lat||(e.center&&e.center.lat), lng:e.lon||(e.center&&e.center.lon),
-      kind:e.tags&&(e.tags.tourism||e.tags.historic||e.tags.amenity||e.tags.leisure)
-    })).filter(p=>p.name&&p.lat!=null).slice(0,14);
+    if(GMAPS_KEY){ await poiGoogle(ll); } else { await poiOverpass(ll); }
     if(!POIS.length){ pop.setContent('<div class="poi-pop">Niets gevonden in de buurt.<br>Zoom in op een stad of bezienswaardigheid.</div>'); return; }
-    pop.setContent('<div class="poi-pop"><h4>In de buurt te doen:</h4>'+POIS.map((p,i)=>
-      '<div class="poi-row"><span>'+(POI_EMO[p.kind]||'📍')+'</span><span class="nm">'+esc(p.name)+'</span>'+
-      (canEdit(cur)?'<button title="Toevoegen aan planning" onclick="addPoi('+i+')">+</button>':'')+'</div>').join('')+'</div>');
+    pop.setContent(poiPopupHtml());
   }catch(e){ pop.setContent('<div class="poi-pop">Zoeken mislukt, probeer opnieuw.</div>'); }
+}
+/* Google Places (New): foto's, sterren en openingstijden */
+async function poiGoogle(ll){
+  const wd=new Date(((daysOf(cur)[0])||new Date().toISOString().slice(0,10))+'T12:00').getDay();
+  const r=await fetch('https://places.googleapis.com/v1/places:searchNearby',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'X-Goog-Api-Key':GMAPS_KEY,
+      'X-Goog-FieldMask':'places.displayName,places.location,places.formattedAddress,places.rating,places.userRatingCount,places.primaryType,places.photos,places.regularOpeningHours'
+    },
+    body:JSON.stringify({
+      includedTypes:['tourist_attraction','museum','art_gallery','historical_landmark','amusement_park','zoo','park','church','restaurant','cafe'],
+      maxResultCount:14, languageCode:'nl',
+      locationRestriction:{circle:{center:{latitude:ll.lat,longitude:ll.lng},radius:1200}}
+    })
+  });
+  const js=await r.json();
+  POIS=(js.places||[]).map(p=>{
+    let opens=null;
+    const per=p.regularOpeningHours&&p.regularOpeningHours.periods;
+    if(per){ const x=per.find(q=>q.open&&q.open.day===wd); if(x) opens=String(x.open.hour).padStart(2,'0')+':'+String(x.open.minute||0).padStart(2,'0'); }
+    return {
+      name:p.displayName&&p.displayName.text, lat:p.location&&p.location.latitude, lng:p.location&&p.location.longitude,
+      kind:p.primaryType, addr:p.formattedAddress, rating:p.rating, ratings:p.userRatingCount, opens,
+      photo:(p.photos&&p.photos[0])?'https://places.googleapis.com/v1/'+p.photos[0].name+'/media?maxWidthPx=120&key='+GMAPS_KEY:null
+    };
+  }).filter(p=>p.name&&p.lat!=null);
+}
+/* OpenStreetMap / Overpass (gratis fallback) */
+async function poiOverpass(ll){
+  const q='[out:json][timeout:12];(nwr(around:900,'+ll.lat+','+ll.lng+')[tourism~"attraction|museum|viewpoint|gallery|zoo|theme_park"][name];nwr(around:900,'+ll.lat+','+ll.lng+')[historic~"castle|monument|memorial|ruins"][name];nwr(around:700,'+ll.lat+','+ll.lng+')[amenity~"restaurant|cafe"][name];nwr(around:900,'+ll.lat+','+ll.lng+')[leisure=park][name];);out center 20;';
+  const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+  const js=await r.json();
+  POIS=(js.elements||[]).map(e=>({
+    name:e.tags&&e.tags.name, lat:e.lat||(e.center&&e.center.lat), lng:e.lon||(e.center&&e.center.lon),
+    kind:e.tags&&(e.tags.tourism||e.tags.historic||e.tags.amenity||e.tags.leisure)
+  })).filter(p=>p.name&&p.lat!=null).slice(0,14);
 }
 function addPoi(i){
   const p=POIS[i]; if(!p) return;
   MAP.closePopup();
   const day=(daysOf(cur)[0])||'';
-  sheetAct(null,day,{title:p.name,lat:p.lat,lng:p.lng,type:(p.kind==='restaurant'||p.kind==='cafe')?'food':'act'});
+  sheetAct(null,day,{title:p.name,lat:p.lat,lng:p.lng,addr:p.addr,opens:p.opens,type:(p.kind==='restaurant'||p.kind==='cafe')?'food':'act'});
 }
 
 /* ================= ETAPPES (OSRM + Tesla) ================= */
@@ -1161,8 +1203,8 @@ function sheetAct(id,day,pre){
     '<div class="field"><label>Wat</label><input id="f_title" placeholder="Bijv. Neuschwanstein bezoeken" value="'+esc(a?a.title:(pre.title||''))+'"></div>'+
     '<div class="row2"><div class="field"><label>Dag</label><select id="f_day">'+sel+'</select></div>'+
     '<div class="field"><label>Tijd (start)</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'"></div></div>'+
-    '<div class="field"><label>🕐 Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):'')+'"></div>'+
-    '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:'')+'"></div>'+
+    '<div class="field"><label>🕐 Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
+    '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:(pre.addr||''))+'"></div>'+
     '<div class="field"><label>Notitie (optioneel)</label><textarea id="f_note" rows="2">'+esc(a?a.note:'')+'</textarea></div>'+
     '<div class="btns">'+(a?'<button class="btn danger" onclick="delAct(\''+a.id+'\')">🗑</button>':'')+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
