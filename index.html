@@ -208,7 +208,13 @@
   .act .body h4 .ti{color:var(--green-dark);font-size:16px;flex:none}
   .act .body .addr{font-size:13px;color:var(--muted);margin-top:3px;word-break:break-word}
   .act .body .note{font-size:13px;color:var(--muted);margin-top:3px;font-style:italic}
-  .actph{width:54px;height:54px;border-radius:12px;object-fit:cover;flex:none}
+  .actph{width:54px;height:54px;border-radius:12px;object-fit:cover;flex:none;cursor:pointer}
+  .phrow{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;-webkit-overflow-scrolling:touch}
+  .phrow img{height:130px;border-radius:12px;flex:none}
+  .plc-line{font-size:14px;font-weight:600;margin-top:8px;display:flex;align-items:flex-start;gap:8px}
+  .plc-line .ti{color:var(--green-dark);margin-top:2px;flex:none}
+  .plc-line a{color:var(--green-dark)}
+  .plc-hours{font-size:13px;color:var(--muted);font-weight:600;margin:2px 0 0 24px}
   .dep{
     margin-top:7px;font-size:12.5px;font-weight:700;color:var(--green-ink);
     background:var(--green-soft);border-radius:10px;padding:6px 10px;display:none;
@@ -794,11 +800,33 @@ async function pickPlace(i){
 }
 
 /* --- stop bewerken --- */
+let stopTimer=null, STOPRES=[], STOPPICK=null;
+function stopInput(v){
+  clearTimeout(stopTimer); STOPPICK=null;
+  if(v.trim().length<2){ const el=document.getElementById('stopAc'); if(el){el.classList.remove('show');el.innerHTML='';} return; }
+  stopTimer=setTimeout(async ()=>{
+    try{
+      const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=nl&q='+encodeURIComponent(v.trim()));
+      STOPRES=await r.json();
+      const el=document.getElementById('stopAc'); if(!el) return;
+      if(!STOPRES.length){ el.classList.remove('show'); el.innerHTML=''; return; }
+      el.innerHTML=STOPRES.map((p,i)=>'<button onclick="pickStopPlace('+i+')">'+esc(p.name||p.display_name.split(',')[0])+'<small>'+esc(p.display_name)+'</small></button>').join('');
+      el.classList.add('show');
+    }catch(e){}
+  },350);
+}
+function pickStopPlace(i){
+  const p=STOPRES[i]; if(!p) return;
+  STOPPICK={name:p.name||p.display_name.split(',')[0],display:p.display_name,lat:+p.lat,lng:+p.lon};
+  document.getElementById('f_sname').value=STOPPICK.name;
+  const el=document.getElementById('stopAc'); if(el){el.classList.remove('show');el.innerHTML='';}
+}
 function sheetStop(id){
   const s=cur.data.stops.find(x=>x.id===id);
   const i=cur.data.stops.indexOf(s);
+  STOPPICK=null; STOPRES=[];
   openSheet('<h2>'+ic('map-pin')+' Bestemming</h2>'+
-    '<div class="field"><label>Naam</label><input id="f_sname" value="'+esc(s.name)+'"></div>'+
+    '<div class="field" style="position:relative"><label>Naam (zoek om de locatie te wijzigen)</label><input id="f_sname" autocomplete="off" oninput="stopInput(this.value)" value="'+esc(s.name)+'"><div class="ac" id="stopAc"></div></div>'+
     '<div class="field" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="f_shome" style="width:20px;height:20px;accent-color:var(--green);flex:none" '+(s.isHome?'checked':'')+'>'+
     '<span style="font-size:14px;font-weight:600">Dit is thuis — vertrek- of eindpunt, telt niet mee als bestemming</span></div>'+
     '<div class="btns" style="margin-top:6px">'+
@@ -813,6 +841,7 @@ async function saveStop(id){
   const s=cur.data.stops.find(x=>x.id===id);
   const nm=document.getElementById('f_sname').value.trim();
   if(nm) s.name=nm;
+  if(STOPPICK){ s.lat=STOPPICK.lat; s.lng=STOPPICK.lng; s.display=STOPPICK.display; }
   const wasHome=!!s.isHome;
   s.isHome=document.getElementById('f_shome').checked;
   if(s.isHome){
@@ -926,7 +955,7 @@ async function poiGoogle(ll){
     headers:{
       'Content-Type':'application/json',
       'X-Goog-Api-Key':GMAPS_KEY,
-      'X-Goog-FieldMask':'places.displayName,places.location,places.formattedAddress,places.rating,places.userRatingCount,places.primaryType,places.photos,places.regularOpeningHours'
+      'X-Goog-FieldMask':'places.id,places.displayName,places.location,places.formattedAddress,places.rating,places.userRatingCount,places.primaryType,places.photos,places.regularOpeningHours'
     },
     body:JSON.stringify({
       includedTypes:['tourist_attraction','museum','art_gallery','historical_landmark','amusement_park','zoo','park','church','restaurant','cafe'],
@@ -941,7 +970,7 @@ async function poiGoogle(ll){
     if(per){ const x=per.find(q=>q.open&&q.open.day===wd); if(x) opens=String(x.open.hour).padStart(2,'0')+':'+String(x.open.minute||0).padStart(2,'0'); }
     return {
       name:p.displayName&&p.displayName.text, lat:p.location&&p.location.latitude, lng:p.location&&p.location.longitude,
-      kind:p.primaryType, addr:p.formattedAddress, rating:p.rating, ratings:p.userRatingCount, opens,
+      kind:p.primaryType, gpid:p.id, addr:p.formattedAddress, rating:p.rating, ratings:p.userRatingCount, opens,
       photo:(p.photos&&p.photos[0])?'https://places.googleapis.com/v1/'+p.photos[0].name+'/media?maxWidthPx=120&key='+GMAPS_KEY:null
     };
   }).filter(p=>p.name&&p.lat!=null);
@@ -960,7 +989,7 @@ function addPoi(i){
   const p=POIS[i]; if(!p) return;
   MAP.closePopup();
   const day=(daysOf(cur)[0])||'';
-  sheetAct(null,day,{title:p.name,lat:p.lat,lng:p.lng,addr:p.addr,opens:p.opens,photo:p.photo,type:GTYPE_MAP[p.kind]||'act'});
+  sheetAct(null,day,{title:p.name,lat:p.lat,lng:p.lng,addr:p.addr,opens:p.opens,photo:p.photo,gpid:p.gpid,type:GTYPE_MAP[p.kind]||'act'});
 }
 
 /* ================= ETAPPES (routering + voertuig) ================= */
@@ -1133,10 +1162,12 @@ function buildActCards(acts,edit){
       (overlap?'<div class="overlap">Let op: overlapt met vorige activiteit</div>':'')+
       (a.time&&a.end&&hmToMin(a.end)>hmToMin(a.time)?'<span class="opens-tag" style="background:var(--bg);color:var(--muted)">'+ic('clock')+' '+durTxt(hmToMin(a.end)-hmToMin(a.time))+'</span> ':'')+
       (a.opens?'<span class="opens-tag">opent om '+esc(a.opens)+'</span>':'')+
-      (a.addr?'<div class="addr">'+ic('map-pin')+' '+esc(a.addr)+'</div><a class="maplink" target="_blank" href="'+mapsUrl(a.addr)+'">Kaarten</a><a class="maplink" target="_blank" href="'+gmapsUrl(a.addr)+'">Google Maps</a>':'')+
+      (a.addr?'<div class="addr">'+ic('map-pin')+' '+esc(a.addr)+'</div>':'')+
+      ((a.addr||a.gpid||a.photo)?'<button class="maplink" style="border:none;cursor:pointer" onclick="sheetPlace(\''+a.id+'\')">'+ic('photo')+' Info &amp; foto\'s</button>':'')+
+      (a.addr?'<a class="maplink" target="_blank" href="'+gmapsUrl(a.addr)+'">Google Maps</a>':'')+
       (a.note?'<div class="note">'+esc(a.note)+'</div>':'')+
       '<div class="dep" id="dep-'+a.id+'"></div>'+
-      '</div>'+(a.photo?'<img class="actph" src="'+a.photo+'" alt="">':'')+'</div></div>';
+      '</div>'+(a.photo?'<img class="actph" src="'+a.photo+'" alt="" onclick="sheetPlace(\''+a.id+'\')">':'')+'</div></div>';
     prev=a;
   });
   return h;
@@ -1559,7 +1590,7 @@ async function delTrip(id){
 }
 
 /* --- planning-item --- */
-let actTimer=null, ACTRES=[], ACTPICK=null, ACTPHOTO=null;
+let actTimer=null, ACTRES=[], ACTPICK=null, ACTPHOTO=null, ACTGPID=null;
 function actInput(v){
   clearTimeout(actTimer); ACTPICK=null;
   if(v.trim().length<3){ const el=document.getElementById('actAc'); if(el){el.classList.remove('show');el.innerHTML='';} return; }
@@ -1583,7 +1614,7 @@ async function searchActPlaces(q){
       const r=await fetch('https://places.googleapis.com/v1/places:searchText',{
         method:'POST',
         headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,
-          'X-Goog-FieldMask':'places.displayName,places.formattedAddress,places.location,places.rating,places.photos,places.primaryType,places.regularOpeningHours'},
+          'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.photos,places.primaryType,places.regularOpeningHours'},
         body:JSON.stringify(Object.assign({textQuery:q,maxResultCount:6,languageCode:'nl'},
           bias?{locationBias:{circle:{center:bias,radius:30000}}}:{}))
       });
@@ -1591,7 +1622,7 @@ async function searchActPlaces(q){
       ACTRES=(js.places||[]).map(p=>({
         name:p.displayName&&p.displayName.text, addr:p.formattedAddress,
         lat:p.location&&p.location.latitude, lng:p.location&&p.location.longitude,
-        kind:p.primaryType,
+        kind:p.primaryType, gpid:p.id,
         rating:p.rating, periods:p.regularOpeningHours&&p.regularOpeningHours.periods,
         photo:(p.photos&&p.photos[0])?'https://places.googleapis.com/v1/'+p.photos[0].name+'/media?maxWidthPx=240&key='+GMAPS_KEY:null
       })).filter(p=>p.name);
@@ -1621,6 +1652,7 @@ function pickActPlace(i){
   const p=ACTRES[i]; if(!p) return;
   ACTPICK={lat:p.lat,lng:p.lng};
   ACTPHOTO=p.photo||null;
+  ACTGPID=p.gpid||null;
   if(p.kind&&GTYPE_MAP[p.kind]){
     pickedType=GTYPE_MAP[p.kind];
     const tp=document.getElementById('actTypes');
@@ -1639,7 +1671,7 @@ function pickActPlace(i){
 function sheetAct(id,day,pre){
   const a=id?cur.data.acts.find(x=>x.id===id):null;
   pre=pre||{};
-  ACTPICK=null; ACTRES=[]; ACTPHOTO=pre.photo||null;
+  ACTPICK=null; ACTRES=[]; ACTPHOTO=pre.photo||null; ACTGPID=pre.gpid||null;
   pickedType=a?(a.type||'act'):(pre.type||'act');
   const days=daysOf(cur);
   const selDay=a?a.day:day;
@@ -1674,11 +1706,56 @@ async function saveAct(id,preLat,preLng){
     if(g){ data.lat=g.lat; data.lng=g.lng; }
   } else if(old){ data.lat=old.lat; data.lng=old.lng; }
   data.photo=ACTPHOTO||(old?old.photo:null);
+  data.gpid=ACTGPID||(old?old.gpid:null);
   if(id) Object.assign(old, data);
   else cur.data.acts.push(Object.assign({id:uid()},data));
   await pushData(); closeSheet(); render();
 }
 async function delAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); await pushData(); closeSheet(); render(); }
+/* plek-detail: foto's, beoordeling en openingsuren zoals in Google Maps */
+async function sheetPlace(actId){
+  const a=cur.data.acts.find(x=>x.id===actId); if(!a) return;
+  openSheet('<h2>'+ic('photo')+' '+esc(a.title)+'</h2><div id="plc" style="min-height:80px">Laden…</div>'+
+    '<div class="btns">'+(a.addr?'<a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" href="'+gmapsUrl(a.addr)+'">'+ic('navigation')+' Google Maps</a>':'')+
+    '<button class="btn primary" onclick="closeSheet()">Sluiten</button></div>');
+  const box=()=>document.getElementById('plc');
+  if(!GMAPS_KEY){ if(box()) box().innerHTML='<p style="color:var(--muted);font-size:14px">Foto\'s en details vereisen de Google Places-koppeling.</p>'; return; }
+  try{
+    let pid=a.gpid;
+    if(!pid){
+      /* oudere activiteit zonder plek-id: opzoeken op naam + adres */
+      const r=await fetch('https://places.googleapis.com/v1/places:searchText',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,'X-Goog-FieldMask':'places.id'},
+        body:JSON.stringify({textQuery:a.title+(a.addr?' '+a.addr:''),maxResultCount:1,languageCode:'nl'})
+      });
+      const js=await r.json();
+      pid=js.places&&js.places[0]&&js.places[0].id;
+      if(pid&&canEdit(cur)){ a.gpid=pid; pushData(); }
+    }
+    if(!pid){ if(box()) box().innerHTML='<p style="color:var(--muted);font-size:14px">Geen Google-gegevens gevonden voor deze plek.</p>'; return; }
+    const r2=await fetch('https://places.googleapis.com/v1/places/'+pid+'?languageCode=nl',{
+      headers:{'X-Goog-Api-Key':GMAPS_KEY,'X-Goog-FieldMask':'displayName,rating,userRatingCount,formattedAddress,internationalPhoneNumber,websiteUri,regularOpeningHours,photos,editorialSummary,googleMapsUri'}
+    });
+    const p=await r2.json();
+    if(p.error) throw 0;
+    let h='';
+    if(p.photos&&p.photos.length){
+      h+='<div class="phrow">'+p.photos.slice(0,8).map(ph=>'<img src="https://places.googleapis.com/v1/'+ph.name+'/media?maxHeightPx=300&key='+GMAPS_KEY+'" alt="">').join('')+'</div>';
+    }
+    if(p.rating) h+='<div class="plc-line">'+ic('star')+'<span><b>'+p.rating+'</b> ('+(p.userRatingCount||0)+' beoordelingen)</span></div>';
+    if(p.editorialSummary&&p.editorialSummary.text) h+='<div class="plc-line">'+ic('info-circle')+'<span>'+esc(p.editorialSummary.text)+'</span></div>';
+    if(p.formattedAddress) h+='<div class="plc-line">'+ic('map-pin')+'<span>'+esc(p.formattedAddress)+'</span></div>';
+    if(p.regularOpeningHours&&p.regularOpeningHours.weekdayDescriptions){
+      h+='<div class="plc-line">'+ic('clock')+'<span>Openingsuren</span></div>'+
+        p.regularOpeningHours.weekdayDescriptions.map(x=>'<div class="plc-hours">'+esc(x)+'</div>').join('');
+    }
+    if(p.internationalPhoneNumber) h+='<div class="plc-line">'+ic('phone')+'<a href="tel:'+esc(p.internationalPhoneNumber.replace(/\s/g,''))+'">'+esc(p.internationalPhoneNumber)+'</a></div>';
+    if(p.websiteUri) h+='<div class="plc-line">'+ic('world')+'<a target="_blank" href="'+esc(p.websiteUri)+'">Website</a></div>';
+    if(box()) box().innerHTML=h||'<p style="color:var(--muted);font-size:14px">Geen extra gegevens beschikbaar.</p>';
+  }catch(e){ if(box()) box().innerHTML='<p style="color:var(--muted);font-size:14px">Details laden mislukt. Werkt dit domein met je Google-key?</p>'; }
+}
+
 /* activiteit als tussenstop in de route opnemen, op de plek met de kleinste omweg */
 async function actToStop(actId){
   const a=cur.data.acts.find(x=>x.id===actId);
