@@ -318,6 +318,11 @@
   .msg{background:var(--amber-soft);color:#8a5a00;border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:14px;display:none;font-weight:600}
   .msg.show{display:block}
   .spin{text-align:center;padding:60px 0;color:var(--muted)}
+  .version{
+    position:fixed;right:8px;bottom:calc(6px + env(safe-area-inset-bottom));z-index:250;
+    font-size:10px;font-weight:700;color:var(--muted);
+    background:rgba(255,255,255,.75);backdrop-filter:blur(4px);padding:2px 8px;border-radius:99px;pointer-events:none;
+  }
 </style>
 </head>
 <body>
@@ -326,6 +331,7 @@
 <div id="tabbar" style="display:none"></div>
 <main id="main"><div class="spin">Laden…</div></main>
 <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+<div class="version" id="version"></div>
 
 <script>
 'use strict';
@@ -1191,16 +1197,76 @@ async function delTrip(id){
 }
 
 /* --- planning-item --- */
+let actTimer=null, ACTRES=[], ACTPICK=null;
+function actInput(v){
+  clearTimeout(actTimer); ACTPICK=null;
+  if(v.trim().length<3){ const el=document.getElementById('actAc'); if(el){el.classList.remove('show');el.innerHTML='';} return; }
+  actTimer=setTimeout(()=>searchActPlaces(v.trim()),350);
+}
+function actBiasCenter(){
+  const dayEl=document.getElementById('f_day');
+  const day=dayEl?dayEl.value:null;
+  if(day){
+    const r=stopRanges(cur).find(rr=>rr.stop.lat!=null&&rangeDays(rr).includes(day));
+    if(r) return {latitude:r.stop.lat,longitude:r.stop.lng};
+  }
+  const s=cur.data.stops.find(x=>x.lat!=null);
+  return s?{latitude:s.lat,longitude:s.lng}:null;
+}
+async function searchActPlaces(q){
+  try{
+    if(GMAPS_KEY){
+      const bias=actBiasCenter();
+      const r=await fetch('https://places.googleapis.com/v1/places:searchText',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,
+          'X-Goog-FieldMask':'places.displayName,places.formattedAddress,places.location,places.rating,places.regularOpeningHours'},
+        body:JSON.stringify(Object.assign({textQuery:q,maxResultCount:6,languageCode:'nl'},
+          bias?{locationBias:{circle:{center:bias,radius:30000}}}:{}))
+      });
+      const js=await r.json();
+      ACTRES=(js.places||[]).map(p=>({
+        name:p.displayName&&p.displayName.text, addr:p.formattedAddress,
+        lat:p.location&&p.location.latitude, lng:p.location&&p.location.longitude,
+        rating:p.rating, periods:p.regularOpeningHours&&p.regularOpeningHours.periods
+      })).filter(p=>p.name);
+    } else {
+      const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=nl&q='+encodeURIComponent(q));
+      const js=await r.json();
+      ACTRES=js.map(p=>({name:p.name||p.display_name.split(',')[0],addr:p.display_name,lat:+p.lat,lng:+p.lon}));
+    }
+    const el=document.getElementById('actAc'); if(!el) return;
+    if(!ACTRES.length){ el.classList.remove('show'); el.innerHTML=''; return; }
+    el.innerHTML=ACTRES.map((p,i)=>'<button onclick="pickActPlace('+i+')">'+esc(p.name)+
+      (p.rating?' <span style="color:var(--amber)">⭐ '+p.rating+'</span>':'')+
+      '<small>'+esc(p.addr||'')+'</small></button>').join('');
+    el.classList.add('show');
+  }catch(e){}
+}
+function pickActPlace(i){
+  const p=ACTRES[i]; if(!p) return;
+  ACTPICK={lat:p.lat,lng:p.lng};
+  document.getElementById('f_title').value=p.name;
+  if(p.addr) document.getElementById('f_addr').value=p.addr;
+  if(p.periods){
+    const dayEl=document.getElementById('f_day');
+    const wd=new Date((dayEl&&dayEl.value?dayEl.value:new Date().toISOString().slice(0,10))+'T12:00').getDay();
+    const x=p.periods.find(q=>q.open&&q.open.day===wd);
+    if(x) document.getElementById('f_opens').value=String(x.open.hour).padStart(2,'0')+':'+String(x.open.minute||0).padStart(2,'0');
+  }
+  const el=document.getElementById('actAc'); if(el){el.classList.remove('show');el.innerHTML='';}
+}
 function sheetAct(id,day,pre){
   const a=id?cur.data.acts.find(x=>x.id===id):null;
   pre=pre||{};
+  ACTPICK=null; ACTRES=[];
   pickedType=a?(a.type||'act'):(pre.type||'act');
   const days=daysOf(cur);
   const selDay=a?a.day:day;
   const sel=days.map((d,i)=>'<option value="'+d+'" '+(selDay===d?'selected':'')+'>Dag '+(i+1)+' — '+fmtDagLang(d)+'</option>').join('');
   openSheet('<h2>'+(a?'Item bewerken':'Item toevoegen')+'</h2>'+
     '<div class="field"><label>Type</label><div class="type-pick">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" onclick="pickType(\''+k+'\',this)">'+v[0]+' '+v[1]+'</button>').join('')+'</div></div>'+
-    '<div class="field"><label>Wat</label><input id="f_title" placeholder="Bijv. Neuschwanstein bezoeken" value="'+esc(a?a.title:(pre.title||''))+'"></div>'+
+    '<div class="field" style="position:relative"><label>Wat (zoek een plek of typ vrij)</label><input id="f_title" placeholder="Bijv. Neuschwanstein" autocomplete="off" oninput="actInput(this.value)" value="'+esc(a?a.title:(pre.title||''))+'"><div class="ac" id="actAc"></div></div>'+
     '<div class="row2"><div class="field"><label>Dag</label><select id="f_day">'+sel+'</select></div>'+
     '<div class="field"><label>Tijd (start)</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'"></div></div>'+
     '<div class="field"><label>🕐 Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
@@ -1217,7 +1283,8 @@ async function saveAct(id,preLat,preLng){
   const data={ title, type:pickedType, day:document.getElementById('f_day').value, time:document.getElementById('f_time').value,
     opens:document.getElementById('f_opens').value, addr, note:document.getElementById('f_note').value.trim() };
   const old=id?cur.data.acts.find(x=>x.id===id):null;
-  if(preLat!=null&&preLng!=null){ data.lat=preLat; data.lng=preLng; }
+  if(ACTPICK&&ACTPICK.lat!=null){ data.lat=ACTPICK.lat; data.lng=ACTPICK.lng; }
+  else if(preLat!=null&&preLng!=null){ data.lat=preLat; data.lng=preLng; }
   else if(addr && (!old||old.addr!==addr)){
     const g=await geocode(addr);
     if(g){ data.lat=g.lat; data.lng=g.lng; }
@@ -1293,6 +1360,11 @@ async function saveExp(id){
 async function delExp(id){ cur.data.exps=cur.data.exps.filter(y=>y.id!==id); await pushData(); closeSheet(); render(); }
 
 /* ================= BOOT ================= */
+(function(){
+  /* versienummer = publicatiemoment van dit bestand (automatisch bij elke deploy) */
+  const d=new Date(document.lastModified);
+  document.getElementById('version').textContent='v '+String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+})();
 async function boot(){
   if(SB_KEY.indexOf('__')===0){ m.innerHTML='<div class="empty">Configuratiefout: geen API-key ingebouwd.</div>'; return; }
   sb=window.supabase.createClient(SB_URL,SB_KEY);
