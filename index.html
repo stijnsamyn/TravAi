@@ -10,6 +10,7 @@
 <title>TravAI — Reisplanner</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.0/dist/tabler-icons.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -30,6 +31,7 @@
   }
   button{font-family:inherit}
   input,select,textarea{font-family:inherit;color:var(--ink)}
+  i.ti{line-height:1;vertical-align:-2px}
   /* ===== top bar ===== */
   #hdr{
     background:#fff; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:500;
@@ -37,23 +39,25 @@
   }
   .hbtn{
     background:#fff; border:1px solid var(--border); color:var(--ink);
-    width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;flex:none;
+    width:36px;height:36px;border-radius:50%;font-size:17px;cursor:pointer;flex:none;
     display:flex;align-items:center;justify-content:center;
   }
   .htitle{flex:1;min-width:120px;display:flex;align-items:center;gap:8px;overflow:hidden}
   .htitle .dot{width:9px;height:9px;border-radius:50%;background:var(--green);flex:none}
-  .htitle h1{font-size:19px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .htitle h1{font-size:19px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px}
+  .htitle h1 .ti{color:var(--green-dark)}
   .htitle .sub{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
   .pill{
     display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);
     border-radius:99px;padding:8px 14px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;
   }
-  .pill .ic{font-size:15px}
+  .pill .ti{font-size:15px;color:var(--green-dark)}
   .donut{width:20px;height:20px;border-radius:50%;flex:none;position:relative;background:conic-gradient(var(--green) var(--p,0%), #e6ecf0 0)}
   .donut::after{content:'';position:absolute;inset:4px;border-radius:50%;background:#fff}
   .btn-share{
     background:var(--green);color:#fff;border:none;border-radius:99px;
     padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(47,190,143,.35);
+    display:inline-flex;align-items:center;gap:7px;
   }
   .avatars{display:flex;align-items:center}
   .avatars .av{
@@ -72,6 +76,7 @@
     background:none;border:none;border-radius:99px;padding:9px 16px;font-size:14px;font-weight:700;
     color:var(--muted);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px;
   }
+  #tabbar .tabb .ti{font-size:17px}
   #tabbar .tabb.on{background:var(--green-soft);color:var(--green-ink)}
   #tabbar .spacer{flex:1}
   /* ===== split layout ===== */
@@ -87,10 +92,12 @@
   }
   .plainwrap{max-width:760px;margin:0 auto;padding:16px 14px 90px}
   /* ===== stops list ===== */
-  .nights-head{display:flex;align-items:center;gap:12px;margin:4px 2px 16px}
+  .nights-head{display:flex;align-items:center;gap:12px;margin:4px 2px 10px}
   .nights-head .bigdonut{width:52px;height:52px;border-radius:50%;position:relative;background:conic-gradient(var(--green) var(--p,0%), #e6ecf0 0);flex:none}
   .nights-head .bigdonut::after{content:attr(data-t);position:absolute;inset:5px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
   .nights-head .lbl{font-size:16px;font-weight:700}
+  .tripstats{font-size:12.5px;color:var(--muted);font-weight:700;margin:0 2px 14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .tripstats .ti{font-size:15px}
   .stop{
     background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
     padding:14px 14px 6px;position:relative;
@@ -108,6 +115,7 @@
     display:inline-flex;align-items:center;gap:5px;border:none;cursor:pointer;
     background:var(--bg);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:700;color:var(--ink);
   }
+  .chip .ti{font-size:14px}
   .chip.add{background:var(--green-soft);color:var(--green-ink)}
   .chip.sleep{background:var(--green-soft);color:var(--green-ink)}
   .chip.act{background:var(--amber-soft);color:#8a5a00}
@@ -119,7 +127,7 @@
   }
   .stepper .n{font-size:19px;font-weight:700;min-width:24px;text-align:center}
   .stepper .lbl{font-size:10px;color:var(--muted);font-weight:700}
-  .stop .kebab{position:absolute;top:6px;right:8px;background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:5px 8px}
+  .stop .kebab{position:absolute;top:6px;right:8px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:5px 8px}
   /* openklapbare dagplanning per stop */
   .chev{width:100%;border:none;background:none;color:var(--muted);font-size:11.5px;font-weight:700;padding:8px 0 7px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
   .stopdays{margin-top:8px;border-top:1px dashed var(--border);padding:6px 2px 2px}
@@ -127,7 +135,7 @@
   .dayrow:last-child{border-bottom:none}
   .dayrow-head{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:700}
   .dayrow-head .dn{background:var(--green-soft);color:var(--green-ink);border-radius:99px;padding:2px 9px;font-size:11px;font-weight:800}
-  .dayrow-head .addbtn{margin-left:auto;background:var(--green-soft);color:var(--green-ink);border:none;border-radius:99px;width:24px;height:24px;font-weight:800;cursor:pointer;font-size:14px;line-height:1}
+  .dayrow-head .addbtn{margin-left:auto;background:var(--green-soft);color:var(--green-ink);border:none;border-radius:99px;width:24px;height:24px;font-weight:800;cursor:pointer;font-size:13px;line-height:1}
   .mini{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:10px;padding:7px 10px;margin-top:6px;font-size:13px;font-weight:600}
   .mini.sleepbg{background:var(--green-soft);color:var(--green-ink)}
   .mini .t{color:var(--green-dark);font-weight:700;font-size:12px;min-width:36px;flex:none}
@@ -142,12 +150,13 @@
     display:inline-flex;align-items:center;gap:7px;background:var(--pink-soft);color:var(--pink);
     border:none;border-radius:99px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;
   }
-  .legpill .zap{color:#b7791f}
+  .legpill .ti{font-size:15px}
+  .legpill .zap{color:#b7791f;display:inline-flex;align-items:center;gap:2px}
   .adddest{
     background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
     display:flex;align-items:center;gap:10px;padding:4px 14px;margin-top:12px;position:relative;
   }
-  .adddest .ic{color:var(--muted)}
+  .adddest .ti{color:var(--muted);font-size:18px}
   .adddest input{flex:1;border:none;outline:none;padding:14px 0;font-size:15px;font-weight:600;background:none}
   .ac{
     position:absolute;top:100%;left:0;right:0;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(30,60,90,.18);
@@ -167,10 +176,15 @@
     box-shadow:0 2px 7px rgba(0,0,0,.28);font-weight:700;font-size:14px;font-family:'Quicksand',sans-serif;
     display:flex;align-items:center;justify-content:center;
   }
-  .mpin.bed{background:var(--green);color:#fff;font-size:15px}
-  .poi-pop{max-height:250px;overflow-y:auto;min-width:210px}
-  .poi-pop h4{font-size:13px;margin-bottom:6px;font-family:'Quicksand',sans-serif}
-  .poi-row{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid #f0f3f5;font-size:12.5px;font-family:'Quicksand',sans-serif}
+  .mpin.bed{background:var(--green);color:#fff;font-size:16px}
+  .modemark{
+    width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.25);
+    display:flex;align-items:center;justify-content:center;font-size:15px;
+  }
+  .poi-pop{max-height:250px;overflow-y:auto;min-width:220px;font-family:'Quicksand',sans-serif}
+  .poi-pop h4{font-size:13px;margin-bottom:6px}
+  .poi-row{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid #f0f3f5;font-size:12.5px}
+  .poi-row>.ti{font-size:16px;color:var(--green-dark);flex:none}
   .poi-row .nm{flex:1;min-width:0}
   .poi-row .nm small{display:block;color:var(--muted);font-size:11px;font-weight:600;margin-top:1px}
   .poi-row img{width:36px;height:36px;border-radius:8px;object-fit:cover;flex:none}
@@ -180,26 +194,31 @@
   .card.tap{cursor:pointer;transition:transform .08s}
   .card.tap:active{transform:scale(.98)}
   .empty{text-align:center;color:var(--muted);padding:44px 24px;font-size:15px}
-  .empty .big{font-size:44px;margin-bottom:12px}
-  .day-head{display:flex;align-items:baseline;gap:8px;margin:20px 4px 10px;flex-wrap:wrap}
+  .empty .big{font-size:44px;margin-bottom:12px;color:#c3cfd9}
+  .day-head{display:flex;align-items:center;gap:8px;margin:20px 4px 10px;flex-wrap:wrap}
   .day-head .n{background:var(--green);color:#fff;font-size:12px;font-weight:800;padding:3px 10px;border-radius:99px;flex:none}
   .day-head .d{font-weight:700;font-size:15px}
-  .day-head .where{font-size:12px;color:var(--muted);font-weight:700}
-  .day-head .add{margin-left:auto;background:var(--green-soft);color:var(--green-ink);border:none;border-radius:99px;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer}
+  .day-head .where{font-size:12px;color:var(--muted);font-weight:700;display:inline-flex;align-items:center;gap:4px}
+  .day-head .add{background:var(--green-soft);color:var(--green-ink);border:none;border-radius:99px;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
   .act{display:flex;gap:12px}
   .act .time{color:var(--green-dark);font-weight:700;font-size:13px;flex:none;width:46px;padding-top:2px}
+  .act .time .end{color:var(--muted);font-size:11px;font-weight:600}
   .act .body{flex:1;min-width:0}
-  .act .body h4{font-size:15px;font-weight:700}
+  .act .body h4{font-size:15px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .act .body h4 .ti{color:var(--green-dark);font-size:16px;flex:none}
   .act .body .addr{font-size:13px;color:var(--muted);margin-top:3px;word-break:break-word}
   .act .body .note{font-size:13px;color:var(--muted);margin-top:3px;font-style:italic}
+  .actph{width:54px;height:54px;border-radius:12px;object-fit:cover;flex:none}
   .dep{
     margin-top:7px;font-size:12.5px;font-weight:700;color:var(--green-ink);
     background:var(--green-soft);border-radius:10px;padding:6px 10px;display:none;
   }
   .dep.show{display:block}
+  .trav{text-align:center;font-size:12px;font-weight:700;color:var(--muted);margin:-4px 0 10px;display:none}
+  .overlap{margin-top:5px;font-size:12px;font-weight:700;color:var(--red);background:var(--red-soft);border-radius:8px;padding:4px 9px;display:inline-block}
   .opens-tag{display:inline-block;font-size:11px;font-weight:700;background:var(--amber-soft);color:#8a5a00;border-radius:99px;padding:2px 8px;margin-top:4px}
   .maplink{display:inline-block;margin-top:6px;margin-right:6px;font-size:12px;font-weight:700;color:var(--green-dark);text-decoration:none;background:var(--green-soft);padding:4px 10px;border-radius:99px}
-  .kebab{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:6px 10px}
+  .kebab{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:6px 10px}
   /* calendar */
   .cal-month{margin-bottom:18px}
   .cal-month h3{font-size:15px;font-weight:700;margin:0 2px 8px}
@@ -218,9 +237,11 @@
   .bud-total .amt{font-size:32px;font-weight:800}
   .bud-total .lbl{font-size:13px;opacity:.9}
   .bud-cat{display:flex;justify-content:space-between;font-size:14px;padding:6px 2px}
+  .bud-cat span{display:inline-flex;align-items:center;gap:7px}
+  .bud-cat .ti{color:var(--green-dark)}
   .bud-cat b{font-variant-numeric:tabular-nums}
   .exp{display:flex;align-items:center;gap:10px}
-  .exp .ic{font-size:20px;flex:none}
+  .exp .ic{font-size:19px;flex:none;color:var(--green-dark)}
   .exp .body{flex:1;min-width:0}
   .exp .body h4{font-size:14px;font-weight:700}
   .exp .body .sub2{font-size:12px;color:var(--muted)}
@@ -230,23 +251,24 @@
   .todo input[type=checkbox]{width:22px;height:22px;accent-color:var(--green);flex:none}
   .todo span{flex:1;font-size:15px}
   .todo.done span{text-decoration:line-through;color:var(--muted)}
-  .todo .del{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px}
+  .todo .del{background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px 8px}
   .inline-add{display:flex;gap:8px;margin-bottom:14px}
   .inline-add input{flex:1;border:1px solid var(--border);border-radius:12px;padding:11px 14px;font-size:16px;background:#fff}
-  .inline-add button{background:var(--green);color:#fff;border:none;border-radius:12px;padding:0 18px;font-size:15px;font-weight:700;cursor:pointer}
+  .inline-add button{background:var(--green);color:#fff;border:none;border-radius:12px;padding:0 18px;font-size:16px;font-weight:700;cursor:pointer}
   .seg{display:flex;background:#eef2f4;border-radius:12px;padding:3px;margin-bottom:14px}
-  .seg button{flex:1;border:none;background:none;padding:9px;font-size:13px;font-weight:700;color:var(--muted);border-radius:10px;cursor:pointer}
+  .seg button{flex:1;border:none;background:none;padding:9px;font-size:13px;font-weight:700;color:var(--muted);border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
   .seg button.on{background:#fff;color:var(--green-ink);box-shadow:var(--shadow)}
   /* fab */
   .fab{
     position:fixed;bottom:calc(22px + env(safe-area-inset-bottom));right:20px;
     width:58px;height:58px;border-radius:50%;border:none;cursor:pointer;
-    background:var(--green);color:#fff;font-size:28px;line-height:1;
+    background:var(--green);color:#fff;font-size:26px;line-height:1;
     box-shadow:0 4px 14px rgba(47,190,143,.45);z-index:300;
+    display:flex;align-items:center;justify-content:center;
   }
   .fab:active{transform:scale(.94)}
   /* trips home */
-  .trip-emoji{font-size:30px}
+  .trip-ic{width:52px;height:52px;border-radius:16px;background:var(--green-soft);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-size:26px;flex:none}
   .trip-row{display:flex;align-items:center;gap:14px}
   .trip-info{flex:1;min-width:0}
   .trip-info h3{font-size:17px;font-weight:700}
@@ -268,7 +290,8 @@
   }
   @media(min-width:900px){ .overlay{align-items:center} .sheet{border-radius:22px;max-height:84vh} }
   @keyframes up{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
-  .sheet h2{font-size:18px;margin-bottom:16px;font-weight:700}
+  .sheet h2{font-size:18px;margin-bottom:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .sheet h2 .ti{color:var(--green-dark)}
   .field{margin-bottom:13px}
   .field label{display:block;font-size:11px;font-weight:800;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
   .field input,.field textarea,.field select{
@@ -284,17 +307,18 @@
   .btn.ghost{background:var(--bg);color:var(--ink)}
   .btn.danger{background:var(--red-soft);color:var(--red);flex:0 0 auto;padding:14px 18px}
   .emoji-pick{display:flex;gap:8px;flex-wrap:wrap}
-  .emoji-pick button{font-size:24px;background:var(--bg);border:2px solid transparent;border-radius:12px;width:46px;height:46px;cursor:pointer}
-  .emoji-pick button.on{border-color:var(--green);background:var(--green-soft)}
+  .emoji-pick button{font-size:22px;background:var(--bg);border:2px solid transparent;border-radius:12px;width:46px;height:46px;cursor:pointer;color:var(--ink)}
+  .emoji-pick button.on{border-color:var(--green);background:var(--green-soft);color:var(--green-dark)}
   .type-pick{display:flex;gap:8px;flex-wrap:wrap}
-  .type-pick button{font-size:13px;font-weight:700;background:var(--bg);border:2px solid transparent;border-radius:99px;padding:8px 13px;cursor:pointer;color:var(--muted)}
+  .type-pick button{font-size:13px;font-weight:700;background:var(--bg);border:2px solid transparent;border-radius:99px;padding:8px 13px;cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+  .type-pick button .ti{font-size:15px}
   .type-pick button.on{border-color:var(--green);background:var(--green-soft);color:var(--green-ink)}
   /* leg sheet */
   .leg-title{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:700;margin-bottom:4px}
   .leg-title .lnk{color:var(--pink);font-size:13px}
   .leg-sub{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:14px}
   .mode-card{border:1px solid var(--border);border-radius:14px;padding:13px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
-  .mode-card .mi{font-size:22px;flex:none}
+  .mode-card .mi{font-size:22px;flex:none;color:var(--green-dark)}
   .mode-card .mm{flex:1}
   .mode-card .mm b{font-size:15px}
   .mode-card .mm .s{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:1px}
@@ -310,7 +334,7 @@
   /* auth */
   .center-wrap{padding:40px 24px;max-width:460px;margin:0 auto}
   .logo{text-align:center;margin:26px 0 30px}
-  .logo .m{font-size:56px}
+  .logo .m{font-size:56px;color:var(--green)}
   .logo h1{font-size:28px;font-weight:800;color:var(--green-dark);margin-top:8px}
   .logo p{color:var(--muted);font-size:14px;margin-top:4px}
   .switch-auth{text-align:center;margin-top:18px;font-size:14px;color:var(--muted)}
@@ -327,7 +351,7 @@
 </head>
 <body>
 
-<div id="hdr"><h1 style="font-size:19px">✈️ TravAI</h1></div>
+<div id="hdr"><h1 style="font-size:19px">TravAI</h1></div>
 <div id="tabbar" style="display:none"></div>
 <main id="main"><div class="spin">Laden…</div></main>
 <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
@@ -338,30 +362,40 @@
 /* ================= CONFIG & STATE ================= */
 const SB_URL='https://ddynbjwemgtcwienupnp.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkeW5iandlbWd0Y3dpZW51cG5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NTI4NTAsImV4cCI6MjA5OTQyODg1MH0.wyW12xbgqp2S9P4yCOo1DW0TEFnYsfpD7g8uFeUf73I';
-const GMAPS_KEY='AIzaSyCWDRxNNWM7bbM0jyNqM0ccCMj4Zr-Tsgc'; // Google Places API-key (leeg = gratis OpenStreetMap-verkenning)
-const RANGE_KM=330;         // praktische actieradius Tesla Model Y (snelweg)
-const CHARGE_MIN=25;        // minuten per laadstop (Supercharger)
+const GMAPS_KEY='AIzaSyCWDRxNNWM7bbM0jyNqM0ccCMj4Zr-Tsgc'; // Google Places API-key (leeg = OpenStreetMap)
 const BUFFER_MIN=15;        // buffer bij vertrekadvies
+
+/* instellingen (per toestel bewaard) */
+let SETTINGS={veh:'car',range:330,charge:25};
+try{ Object.assign(SETTINGS, JSON.parse(localStorage.getItem('travai_settings')||'{}')); }catch(e){}
 
 let sb=null, user=null, RT=null;
 let trips=[], memberships={};
 let cur=null;
 let view='loading';        // auth | home | trip
-let tab='route';           // route | days | cal | budget | lists
+let tab='route';           // route | today | days | cal | budget | lists
+let dayView=null;          // datum die de Vandaag-tab toont
 let listMode='todos';
 let mapOn=true;
-let MAP=null, ROUTELAYER=null, POILAYER=null;
-const LEGCACHE={}, GEOCACHE={};
-const EXPANDED={};          // welke stops opengeklapt zijn (per sessie)
+let MAP=null, ROUTELAYER=null;
+let SCROLL_TODAY=false;
+const LEGCACHE={}, GEOCACHE={}, WEATHER={};
+const EXPANDED={};
 
 const MND=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
 const MNDL=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
 const DAG=['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
 const DAGK=['zo','ma','di','wo','do','vr','za'];
-const ACT_TYPES={act:['🎯','Activiteit'],food:['🍽️','Eten & drinken'],transport:['🚆','Vervoer'],flight:['✈️','Vlucht']};
-const EXP_CATS={stay:['🏨','Verblijf'],food:['🍽️','Eten'],transport:['🚗','Vervoer'],fun:['🎟️','Activiteiten'],shop:['🛍️','Shopping'],other:['📦','Overig']};
-const EMOJIS=['✈️','🏖️','🏔️','🏙️','🚗','🛳️','🎿','🏕️','🌴','🗼','🍝','🎡'];
+function ic(n){ return '<i class="ti ti-'+n+'"></i>'; }
+const ACT_TYPES={act:['target','Activiteit'],food:['tools-kitchen-2','Eten & drinken'],transport:['train','Vervoer'],flight:['plane','Vlucht']};
+const EXP_CATS={stay:['bed','Verblijf'],food:['tools-kitchen-2','Eten'],transport:['car','Vervoer'],fun:['ticket','Activiteiten'],shop:['shopping-bag','Shopping'],other:['package','Overig']};
+const TRIP_ICONS=['plane','beach','mountain','building-skyscraper','car','ship','snowflake','tent','pizza','compass','bike','camera'];
+const MODES={car:['car','Auto'],moto:['motorbike','Moto'],taxi:['car','Taxi'],bus:['bus','Bus'],train:['train','Trein'],plane:['plane','Vlucht'],boat:['ship','Boot'],bike:['bike','Fiets'],foot:['walk','Te voet']};
+const MODE_SPEED={train:95,plane:750,boat:32}; // km/u voor tijdschatting
+const MODE_STYLE={car:{color:'#e8467c'},moto:{color:'#f76707'},taxi:{color:'#f5a623'},bus:{color:'#7048e8',dash:'10 7'},foot:{color:'#1e9e74',dash:'2 7'},bike:{color:'#2f9e44',dash:'6 6'},train:{color:'#5c7cfa',dash:'10 7'},plane:{color:'#7c5cff',dash:'4 9'},boat:{color:'#15aabf',dash:'10 7'}};
 const STOPCOLORS=['#2fbe8f','#f5a623','#5c7cfa','#e8467c','#845ef7','#15aabf','#fa5252','#40c057'];
+const PACK_SUG=['Paspoort / ID','Rijbewijs','Laadkabel auto','Telefoonladers','Powerbank','Zonnecrème','Zonnebril','Medicatie','Toilettas','EHBO-setje','Regenjas','Wandelschoenen','Zwemgerief','Reisadapters','Herbruikbare waterflessen','Snacks voor onderweg','Reisverzekering-pas','Nekkussen'];
+const POI_ICON={attraction:'star',tourist_attraction:'star',museum:'building-bank',viewpoint:'eye',gallery:'photo',art_gallery:'photo',zoo:'paw',theme_park:'rollercoaster',amusement_park:'rollercoaster',castle:'building-castle',historical_landmark:'building-castle',monument:'building-monument',memorial:'building-monument',ruins:'building-bank',restaurant:'tools-kitchen-2',cafe:'coffee',park:'trees',church:'building-church'};
 
 /* ================= HELPERS ================= */
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -384,6 +418,15 @@ function durTxt(min){ min=Math.round(min); return min>=60 ? Math.floor(min/60)+'
 function mapsUrl(a){ return 'https://maps.apple.com/?q='+encodeURIComponent(a); }
 function gmapsUrl(a){ return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(a); }
 function dirUrl(a,b){ return 'https://www.google.com/maps/dir/?api=1&origin='+a.lat+','+a.lng+'&destination='+b.lat+','+b.lng; }
+function havKm(a,b){
+  const R=6371, dLat=(b.lat-a.lat)*Math.PI/180, dLng=(b.lng-a.lng)*Math.PI/180;
+  const h=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function tripIcon(t){
+  const v=t.emoji||'plane';
+  return /^[a-z0-9-]+$/.test(v) ? ic(v) : esc(v); /* oude reizen kunnen nog een emoji-teken hebben */
+}
 function status(t){
   const now=new Date().toISOString().slice(0,10);
   if(t.end_date && t.end_date<now) return ['past','Voorbij'];
@@ -436,6 +479,7 @@ function hotelForDay(t,day){
   }
   return t.data.hotels.find(h=>h.cin&&h.cout&&h.cin<=day&&day<=h.cout)||null;
 }
+function sortActs(arr){ return [...arr].sort((a,b)=>(a.time||a.opens||'99').localeCompare(b.time||b.opens||'99')); }
 
 /* ================= DATA ================= */
 async function loadTrips(){
@@ -465,12 +509,13 @@ function subRealtime(){
 /* ================= RENDER ================= */
 const hdr=document.getElementById('hdr'), tabbar=document.getElementById('tabbar'), m=document.getElementById('main');
 function render(){
-  if(view==='auth'){ hdr.innerHTML='<h1 style="font-size:19px">✈️ TravAI</h1>'; tabbar.style.display='none'; m.innerHTML=renderAuth(); return; }
+  if(view==='auth'){ hdr.innerHTML='<h1 style="font-size:19px">TravAI</h1>'; tabbar.style.display='none'; m.innerHTML=renderAuth(); return; }
   if(view==='home'){
-    hdr.innerHTML='<div class="htitle"><h1>✈️ TravAI</h1><span class="sub">mijn reizen</span></div>'+
-      '<button class="hbtn" title="Exporteer back-up" onclick="exportData()">⬇</button>'+
-      '<button class="hbtn" title="Vernieuwen" onclick="refresh()">⟳</button>'+
-      '<button class="hbtn" title="Uitloggen" onclick="logout()">⎋</button>';
+    hdr.innerHTML='<div class="htitle"><h1>'+ic('map-2')+' TravAI</h1><span class="sub">mijn reizen</span></div>'+
+      '<button class="hbtn" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
+      '<button class="hbtn" title="Exporteer back-up" onclick="exportData()">'+ic('download')+'</button>'+
+      '<button class="hbtn" title="Vernieuwen" onclick="refresh()">'+ic('refresh')+'</button>'+
+      '<button class="hbtn" title="Uitloggen" onclick="logout()">'+ic('logout')+'</button>';
     tabbar.style.display='none';
     m.innerHTML='<div class="plainwrap">'+renderHome()+'</div>';
     return;
@@ -479,20 +524,21 @@ function render(){
     if(!cur){ view='home'; return render(); }
     const edit=canEdit(cur);
     const tot=totNights(cur), pl=plannedNights(cur), pct=tot?Math.min(100,Math.round(pl/tot*100)):0;
-    hdr.innerHTML='<button class="hbtn" onclick="goHome()">‹</button>'+
-      '<div class="htitle"><span class="dot"></span><div style="min-width:0"><h1>'+esc(cur.emoji||'✈️')+' '+esc(cur.name)+'</h1>'+
+    hdr.innerHTML='<button class="hbtn" onclick="goHome()">'+ic('chevron-left')+'</button>'+
+      '<div class="htitle"><span class="dot"></span><div style="min-width:0"><h1>'+tripIcon(cur)+' '+esc(cur.name)+'</h1>'+
       '<div class="sub">'+(cur.start_date?fmtD(cur.start_date)+' – '+fmtDY(cur.end_date):'nog geen datums')+'</div></div></div>'+
       '<span class="avatars" id="avatars"></span>'+
-      (edit?'<button class="pill" onclick="sheetTrip(\''+cur.id+'\')"><span class="ic">📅</span>'+(cur.start_date?fmtD(cur.start_date)+' – '+fmtD(cur.end_date):'datums')+'</button>':'')+
+      (edit?'<button class="pill" onclick="sheetTrip(\''+cur.id+'\')">'+ic('calendar')+(cur.start_date?fmtD(cur.start_date)+' – '+fmtD(cur.end_date):'datums')+'</button>':'')+
       '<button class="pill" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+' nachten</button>'+
-      '<button class="btn-share" onclick="sheetShare()">↗ Delen</button>';
+      '<button class="btn-share" onclick="sheetShare()">'+ic('share')+' Delen</button>';
     tabbar.style.display='flex';
-    const tabs=[['route','🗺️','Route'],['days','📅','Dagen'],['cal','🗓️','Kalender'],['budget','💶','Budget'],['lists','✅','Lijsten']];
-    tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+x[1]+' '+x[2]+'</button>').join('')+
+    const tabs=[['route','route','Route'],['today','sun','Vandaag'],['days','calendar','Dagen'],['cal','calendar-month','Kalender'],['budget','wallet','Budget'],['lists','list-check','Lijsten']];
+    tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+ic(x[1])+' '+x[2]+'</button>').join('')+
       '<span class="spacer"></span>'+
-      '<button class="tabb" onclick="sheetNotes()">📝 Notities</button>'+
-      (tab==='route'?'<button class="tabb" onclick="toggleMap()">'+(mapOn?'Kaart verbergen':'Kaart tonen')+'</button>':'');
-    const note=edit?'':'<div class="viewer-note">👀 Gedeelde reis — '+(myRole(cur)==='viewer'?'alleen-lezen':'jij kunt meebewerken')+'</div>';
+      '<button class="tabb" onclick="sheetNotes()">'+ic('notes')+' Notities</button>'+
+      '<button class="tabb" onclick="sheetSettings()">'+ic('settings')+'</button>'+
+      (tab==='route'?'<button class="tabb" onclick="toggleMap()">'+ic('map')+' '+(mapOn?'Verberg':'Kaart')+'</button>':'');
+    const note=edit?'':'<div class="viewer-note">Gedeelde reis — '+(myRole(cur)==='viewer'?'alleen-lezen':'jij kunt meebewerken')+'</div>';
     if(tab==='route'){
       m.innerHTML=note+'<div class="split">'+
         '<div class="mappane'+(mapOn?'':' off')+'"><div id="map"></div></div>'+
@@ -501,22 +547,51 @@ function render(){
       computeLegs();
     } else {
       m.innerHTML=note+'<div class="plainwrap">'+
-        (tab==='days'?renderDays():tab==='cal'?renderCal():tab==='budget'?renderBudget():renderLists())+'</div>';
-      if(tab==='days') computeDepartures();
+        (tab==='today'?renderToday():tab==='days'?renderDays():tab==='cal'?renderCal():tab==='budget'?renderBudget():renderLists())+'</div>';
+      if(tab==='days'||tab==='today'){
+        computeDepartures(); computeTravel(); computeWeather();
+        if(tab==='today') computeDayLeg();
+        if(tab==='days'&&SCROLL_TODAY){
+          SCROLL_TODAY=false;
+          const td=new Date().toISOString().slice(0,10);
+          setTimeout(()=>{ const e=document.getElementById('day-'+td); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
+        }
+      }
     }
     loadMembers();
   }
 }
-function setTab(x){ tab=x; render(); window.scrollTo(0,0); }
+function setTab(x){ if(x==='days'&&tab!=='days') SCROLL_TODAY=true; tab=x; render(); window.scrollTo(0,0); }
 function goHome(){ view='home'; cur=null; if(MAP){MAP.remove();MAP=null;} render(); }
-function openTrip(id){ cur=trips.find(x=>x.id===id); view='trip'; tab='route'; mapOn=window.innerWidth>=600; render(); window.scrollTo(0,0); }
+function openTrip(id){ cur=trips.find(x=>x.id===id); view='trip'; tab='route'; dayView=null; mapOn=window.innerWidth>=600; render(); window.scrollTo(0,0); }
 function toggleMap(){ mapOn=!mapOn; render(); }
+
+/* ================= INSTELLINGEN ================= */
+function sheetSettings(){
+  openSheet('<h2>'+ic('settings')+' Instellingen</h2>'+
+    '<div class="field"><label>Mijn voertuig</label><select id="s_veh">'+
+      '<option value="car"'+(SETTINGS.veh==='car'?' selected':'')+'>Gewone auto (benzine/diesel)</option>'+
+      '<option value="ev"'+(SETTINGS.veh==='ev'?' selected':'')+'>Elektrische auto (met laadstop-advies)</option>'+
+    '</select></div>'+
+    '<div class="row2"><div class="field"><label>Actieradius (km)</label><input id="s_range" type="number" inputmode="numeric" value="'+SETTINGS.range+'"></div>'+
+    '<div class="field"><label>Laadtijd per stop (min)</label><input id="s_charge" type="number" inputmode="numeric" value="'+SETTINGS.charge+'"></div></div>'+
+    '<p style="font-size:12.5px;color:var(--muted);margin:-4px 0 6px">Actieradius en laadtijd gelden alleen voor elektrisch. Richtwaarde Tesla Model Y: 330 km op de snelweg, 25 min per laadstop.</p>'+
+    '<div class="btns"><button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
+    '<button class="btn primary" onclick="saveSettings()">Bewaar</button></div>');
+}
+function saveSettings(){
+  SETTINGS.veh=document.getElementById('s_veh').value;
+  SETTINGS.range=Math.max(50,+document.getElementById('s_range').value||330);
+  SETTINGS.charge=Math.max(5,+document.getElementById('s_charge').value||25);
+  localStorage.setItem('travai_settings',JSON.stringify(SETTINGS));
+  closeSheet(); render();
+}
 
 /* ================= AUTH ================= */
 let authMode='login';
 function renderAuth(){
   const login=authMode==='login';
-  return '<div class="center-wrap"><div class="logo"><div class="m">🌍</div><h1>TravAI</h1><p>Plan je reizen. Samen, slim, met kaart.</p></div>'+
+  return '<div class="center-wrap"><div class="logo"><div class="m">'+ic('world')+'</div><h1>TravAI</h1><p>Plan je reizen. Samen, slim, met kaart.</p></div>'+
     '<div class="msg" id="authMsg"></div>'+
     '<div class="card"><div class="field"><label>E-mailadres</label><input id="a_email" type="email" autocomplete="email" placeholder="jij@voorbeeld.be"></div>'+
     '<div class="field"><label>Wachtwoord</label><input id="a_pass" type="password" autocomplete="'+(login?'current-password':'new-password')+'" placeholder="••••••••" onkeydown="if(event.key===\'Enter\')doAuth()"></div>'+
@@ -562,7 +637,7 @@ async function logout(){ await sb.auth.signOut(); user=null; trips=[]; cur=null;
 function renderHome(){
   let h='';
   if(!trips.length){
-    h='<div class="empty"><div class="big">🌍</div>Nog geen reizen.<br>Tik op <b>+</b> om je eerste reis te plannen!</div>';
+    h='<div class="empty"><div class="big">'+ic('world')+'</div>Nog geen reizen.<br>Tik op <b>+</b> om je eerste reis te plannen!</div>';
   } else {
     const now=new Date().toISOString().slice(0,10);
     const up=trips.filter(t=>!t.end_date||t.end_date>=now);
@@ -570,16 +645,16 @@ function renderHome(){
     if(up.length) h+='<div class="section-title">Komende reizen</div>'+up.map(tripCard).join('');
     if(past.length) h+='<div class="section-title">Vorige reizen</div>'+past.map(tripCard).join('');
   }
-  h+='<button class="fab" onclick="sheetTrip()">+</button>';
+  h+='<button class="fab" onclick="sheetTrip()">'+ic('plus')+'</button>';
   return h;
 }
 function tripCard(t){
   const [cls,lbl]=status(t);
   const shared=t.owner!==user.id;
   return '<div class="card tap" onclick="openTrip(\''+t.id+'\')">'+
-    '<div class="trip-row"><div class="trip-emoji">'+esc(t.emoji||'✈️')+'</div>'+
+    '<div class="trip-row"><div class="trip-ic">'+tripIcon(t)+'</div>'+
     '<div class="trip-info"><h3>'+esc(t.name)+'</h3>'+
-    (t.dest?'<div class="dest">📍 '+esc(t.dest)+'</div>':'')+
+    (t.dest?'<div class="dest">'+ic('map-pin')+' '+esc(t.dest)+'</div>':'')+
     '<div class="dates">'+fmtD(t.start_date)+' – '+fmtDY(t.end_date)+'</div></div>'+
     (shared?'<span class="badge shared">Gedeeld</span>':(cls?'<span class="badge '+cls+'">'+lbl+'</span>':''))+
     '</div></div>';
@@ -589,41 +664,54 @@ function tripCard(t){
 function renderRoute(){
   const t=cur, edit=canEdit(t), rs=stopRanges(t);
   const tot=totNights(t), pl=plannedNights(t), pct=tot?Math.min(100,Math.round(pl/tot*100)):0;
-  let h='<div class="nights-head"><div class="bigdonut" style="--p:'+pct+'%" data-t="'+pl+'/'+tot+'"></div><div class="lbl">nachten gepland</div></div>';
-  if(!t.data.stops.length) h+='<div class="empty"><div class="big">📍</div>Voeg je eerste bestemming toe.</div>';
+  let h='<div class="nights-head"><div class="bigdonut" style="--p:'+pct+'%" data-t="'+pl+'/'+tot+'"></div><div class="lbl">nachten gepland</div></div>'+
+    '<div class="tripstats" id="tripstats"></div>';
+  if(!t.data.stops.length) h+='<div class="empty"><div class="big">'+ic('map-pin')+'</div>Voeg je eerste bestemming toe.</div>';
+  let num=0;
   rs.forEach((r,i)=>{
     const s=r.stop;
     if(i>0){
-      h+='<div class="leg"><button class="legpill" id="leg-'+s.id+'" onclick="sheetLeg(\''+s.id+'\')">🚗 berekenen…</button></div>';
+      h+='<div class="leg"><button class="legpill" id="leg-'+s.id+'" onclick="sheetLeg(\''+s.id+'\')">'+ic(MODES[s.mode||'car'][0])+' berekenen…</button></div>';
     }
     const hs=hotelsForStop(t,r), acts=actsForRange(t,r);
-    const dts = r.from ? (s.nights>0 ? fmtKort(r.from)+' – '+fmtKort(r.to) : fmtKort(r.from)+' · Tussenstop') : 'datums instellen';
+    const dts = r.from ? (s.isHome ? fmtKort(r.from)+' · Thuis — '+(i===0?'vertrekpunt':'eindpunt') : (s.nights>0 ? fmtKort(r.from)+' – '+fmtKort(r.to) : fmtKort(r.from)+' · Tussenstop')) : 'datums instellen';
     const open=!!EXPANDED[s.id];
+    if(!s.isHome) num++;
     h+='<div class="stop">'+
       '<div class="srow">'+
-      '<div class="num" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'">'+(i+1)+'</div>'+
+      '<div class="num" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'">'+(s.isHome?ic('home'):num)+'</div>'+
       '<div class="mid"><h3>'+esc(s.name)+'</h3><div class="dts">'+dts+'</div>'+
       (open?'':'<div class="chips">'+
-        (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">🛏️ '+esc(x.name)+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
-          (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">+ slaapplek</button>':''))+
-        (acts.length?'<button class="chip act" onclick="toggleStop(\''+s.id+'\')">🎯 '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
-        (edit&&r.from?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">+ activiteit</button>':'')+
+        (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">'+ic('bed')+' '+esc(x.name)+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
+          (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">'+ic('plus')+' slaapplek</button>':''))+
+        (acts.length?'<button class="chip act" onclick="toggleStop(\''+s.id+'\')">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
+        (edit&&r.from?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
       '</div>')+
       '</div>'+
-      '<div class="stepper"><div class="row">'+
+      (s.isHome?'':'<div class="stepper"><div class="row">'+
         (edit?'<button onclick="chgNights(\''+s.id+'\',-1)">−</button>':'')+
         '<span class="n">'+s.nights+'</span>'+
         (edit?'<button onclick="chgNights(\''+s.id+'\',1)">+</button>':'')+
-      '</div><span class="lbl">'+(s.nights===1?'nacht':'nachten')+'</span></div>'+
+      '</div><span class="lbl">'+(s.nights===1?'nacht':'nachten')+'</span></div>')+
       '</div>'+
-      (edit?'<button class="kebab" onclick="sheetStop(\''+s.id+'\')">✎</button>':'')+
+      (edit?'<button class="kebab" onclick="sheetStop(\''+s.id+'\')">'+ic('pencil')+'</button>':'')+
       (open?renderStopDays(t,r,edit):'')+
-      (r.from?'<button class="chev" onclick="toggleStop(\''+s.id+'\')">'+(open?'▲ Dagplanning verbergen':'▼ Dagplanning tonen')+'</button>':'')+
+      (r.from?'<button class="chev" onclick="toggleStop(\''+s.id+'\')">'+ic(open?'chevron-up':'chevron-down')+' '+(open?'Dagplanning verbergen':'Dagplanning tonen')+'</button>':'')+
     '</div>';
   });
   if(edit){
-    h+='<div class="adddest"><span class="ic">🔍</span><input id="destIn" placeholder="Nieuwe bestemming toevoegen…" autocomplete="off" oninput="destInput(this.value)">'+
+    h+='<div class="adddest">'+ic('search')+'<input id="destIn" placeholder="Nieuwe bestemming toevoegen…" autocomplete="off" oninput="destInput(this.value)">'+
        '<div class="ac" id="acList"></div></div>';
+    if(SETTINGS.home){
+      const ss=t.data.stops;
+      const startFree=!ss.length||!ss[0].isHome, endFree=!ss.length||!ss[ss.length-1].isHome;
+      let hb='';
+      if(startFree) hb+='<button class="chip add" onclick="addHome(\'start\')">'+ic('home')+' Thuis als vertrekpunt</button>';
+      if(endFree) hb+='<button class="chip add" onclick="addHome(\'end\')">'+ic('home')+' Thuis als eindpunt</button>';
+      if(hb) h+='<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">'+hb+'</div>';
+    } else {
+      h+='<div style="margin-top:10px;font-size:12px;color:var(--muted);font-weight:600">Tip: zoek je thuisadres als bestemming en vink in het potlood-menu "Dit is thuis" aan. Daarna kun je thuis altijd met één tik als vertrek- of eindpunt toevoegen.</div>';
+    }
   }
   return h;
 }
@@ -642,22 +730,22 @@ function renderStopDays(t,r,edit){
   const hs=hotelsForStop(t,r);
   hs.forEach(x=>{
     const n=hotelNights(x);
-    h+='<div class="mini sleepbg"><span>🛏️</span><button class="ttl" onclick="sheetHotel(\''+x.id+'\')">'+esc(x.name)+'</button>'+
+    h+='<div class="mini sleepbg">'+ic('bed')+'<button class="ttl" onclick="sheetHotel(\''+x.id+'\')">'+esc(x.name)+'</button>'+
        '<span class="sub">'+(x.cin?fmtKort(x.cin)+' → '+fmtKort(x.cout):'')+(n?' · '+n+(n===1?' nacht':' nachten'):'')+'</span></div>';
   });
   if(!hs.length&&edit&&s.nights>0)
-    h+='<div class="mini"><span>🛏️</span><button class="ttl" onclick="sheetHotel(null,\''+s.id+'\')">+ slaapplek voor '+s.nights+(s.nights===1?' nacht':' nachten')+'</button></div>';
+    h+='<div class="mini">'+ic('bed')+'<button class="ttl" onclick="sheetHotel(null,\''+s.id+'\')">+ slaapplek voor '+s.nights+(s.nights===1?' nacht':' nachten')+'</button></div>';
   rangeDays(r).forEach(d=>{
     const di=allDays.indexOf(d)+1;
-    const acts=t.data.acts.filter(a=>a.day===d).sort((a,b)=>(a.time||a.opens||'99').localeCompare(b.time||b.opens||'99'));
+    const acts=sortActs(t.data.acts.filter(a=>a.day===d));
     h+='<div class="dayrow"><div class="dayrow-head"><span class="dn">Dag '+di+'</span><span>'+fmtKort(d)+'</span>'+
-       (edit?'<button class="addbtn" title="Activiteit toevoegen op deze dag" onclick="sheetAct(null,\''+d+'\')">+</button>':'')+'</div>';
+       (edit?'<button class="addbtn" title="Activiteit toevoegen op deze dag" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>':'')+'</div>';
     if(!acts.length) h+='<div class="mini-none">nog niets gepland</div>';
     acts.forEach(a=>{
-      const ic=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
+      const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
       h+='<div class="mini"><span class="t">'+(a.time?esc(a.time):'—')+(a.end?'<br><span style="color:var(--muted);font-size:10px">'+esc(a.end)+'</span>':'')+'</span>'+
-         '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+ic+' '+esc(a.title)+'</button>'+
-         (edit?'<button class="mv" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">‹</button><button class="mv" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">›</button>':'')+
+         '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+ic(icn)+' '+esc(a.title)+'</button>'+
+         (edit?'<button class="mv" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">'+ic('chevron-left')+'</button><button class="mv" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">'+ic('chevron-right')+'</button>':'')+
          '</div>';
     });
     h+='</div>';
@@ -707,13 +795,15 @@ async function pickPlace(i){
 function sheetStop(id){
   const s=cur.data.stops.find(x=>x.id===id);
   const i=cur.data.stops.indexOf(s);
-  openSheet('<h2>Bestemming</h2>'+
+  openSheet('<h2>'+ic('map-pin')+' Bestemming</h2>'+
     '<div class="field"><label>Naam</label><input id="f_sname" value="'+esc(s.name)+'"></div>'+
+    '<div class="field" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="f_shome" style="width:20px;height:20px;accent-color:var(--green);flex:none" '+(s.isHome?'checked':'')+'>'+
+    '<span style="font-size:14px;font-weight:600">Dit is thuis — vertrek- of eindpunt, telt niet mee als bestemming</span></div>'+
     '<div class="btns" style="margin-top:6px">'+
-      (i>0?'<button class="btn ghost" onclick="moveStop(\''+id+'\',-1)">↑ Vroeger</button>':'')+
-      (i<cur.data.stops.length-1?'<button class="btn ghost" onclick="moveStop(\''+id+'\',1)">↓ Later</button>':'')+
+      (i>0?'<button class="btn ghost" onclick="moveStop(\''+id+'\',-1)">'+ic('arrow-up')+' Vroeger</button>':'')+
+      (i<cur.data.stops.length-1?'<button class="btn ghost" onclick="moveStop(\''+id+'\',1)">'+ic('arrow-down')+' Later</button>':'')+
     '</div>'+
-    '<div class="btns"><button class="btn danger" onclick="delStop(\''+id+'\')">🗑</button>'+
+    '<div class="btns"><button class="btn danger" onclick="delStop(\''+id+'\')">'+ic('trash')+'</button>'+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveStop(\''+id+'\')">Bewaar</button></div>');
 }
@@ -721,7 +811,20 @@ async function saveStop(id){
   const s=cur.data.stops.find(x=>x.id===id);
   const nm=document.getElementById('f_sname').value.trim();
   if(nm) s.name=nm;
+  const wasHome=!!s.isHome;
+  s.isHome=document.getElementById('f_shome').checked;
+  if(s.isHome){
+    s.nights=0;
+    if(s.lat!=null){ SETTINGS.home={name:s.name,lat:s.lat,lng:s.lng}; localStorage.setItem('travai_settings',JSON.stringify(SETTINGS)); }
+  } else if(wasHome){ delete s.isHome; }
   await pushData(); closeSheet(); render();
+}
+/* bewaard thuisadres als vertrek- of eindpunt toevoegen */
+async function addHome(where){
+  if(!SETTINGS.home) return;
+  const st={id:uid(),name:SETTINGS.home.name,lat:SETTINGS.home.lat,lng:SETTINGS.home.lng,nights:0,isHome:true};
+  if(where==='start') cur.data.stops.unshift(st); else cur.data.stops.push(st);
+  await pushData(); render();
 }
 async function moveStop(id,d){
   const a=cur.data.stops; const i=a.findIndex(x=>x.id===id); const j=i+d;
@@ -745,17 +848,18 @@ function mountMap(){
     attribution:'© OpenStreetMap, © CARTO', maxZoom:19
   }).addTo(MAP);
   ROUTELAYER=L.layerGroup().addTo(MAP);
-  POILAYER=L.layerGroup().addTo(MAP);
   const pts=[];
   const rs=stopRanges(cur);
+  let num=0;
   rs.forEach((r,i)=>{
     const s=r.stop; if(s.lat==null) return;
     pts.push([s.lat,s.lng]);
-    L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:'<div class="mpin" style="color:'+STOPCOLORS[i%STOPCOLORS.length]+'">'+(i+1)+'</div>',iconSize:[32,32],iconAnchor:[16,16]})})
-      .addTo(MAP).bindPopup('<b>'+esc(s.name)+'</b><br>'+(r.from?fmtKort(r.from)+(s.nights>0?' – '+fmtKort(r.to):' · tussenstop'):''));
+    if(!s.isHome) num++;
+    L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:'<div class="mpin" style="color:'+STOPCOLORS[i%STOPCOLORS.length]+'">'+(s.isHome?ic('home'):num)+'</div>',iconSize:[32,32],iconAnchor:[16,16]})})
+      .addTo(MAP).bindPopup('<b>'+esc(s.name)+'</b><br>'+(r.from?fmtKort(r.from)+(s.isHome?' · thuis':(s.nights>0?' – '+fmtKort(r.to):' · tussenstop')):''));
     hotelsForStop(cur,r).forEach(hx=>{
-      if(hx.lat!=null) L.marker([hx.lat,hx.lng],{icon:L.divIcon({className:'',html:'<div class="mpin bed">🛏</div>',iconSize:[32,32],iconAnchor:[16,16]})})
-        .addTo(MAP).bindPopup('<b>🛏️ '+esc(hx.name)+'</b>'+(hx.addr?'<br>'+esc(hx.addr):''));
+      if(hx.lat!=null) L.marker([hx.lat,hx.lng],{icon:L.divIcon({className:'',html:'<div class="mpin bed">'+ic('bed')+'</div>',iconSize:[32,32],iconAnchor:[16,16]})})
+        .addTo(MAP).bindPopup('<b>'+esc(hx.name)+'</b>'+(hx.addr?'<br>'+esc(hx.addr):''));
     });
   });
   cur.data.acts.forEach(a=>{
@@ -772,33 +876,42 @@ function drawRoute(){
   ROUTELAYER.clearLayers();
   const ss=cur.data.stops;
   for(let i=1;i<ss.length;i++){
-    const a=ss[i-1], b=ss[i];
+    const a=ss[i-1], b=ss[i], mode=b.mode||'car';
     if(a.lat==null||b.lat==null) continue;
-    const c=LEGCACHE[legKey(a,b,'car')];
-    if(c&&c.geometry){
-      L.geoJSON(c.geometry,{style:{color:'#e8467c',weight:3.5,opacity:.85}}).addTo(ROUTELAYER);
-    } else {
-      L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:'#e8467c',weight:2.5,dashArray:'7 7',opacity:.7}).addTo(ROUTELAYER);
+    const st=MODE_STYLE[mode]||MODE_STYLE.car;
+    let drawn=false;
+    if(mode==='car'||mode==='moto'||mode==='taxi'||mode==='bike'||mode==='foot'||mode==='bus'){
+      const prof=(mode==='bike')?'bike':(mode==='foot')?'foot':'car';
+      const c=LEGCACHE[legKey(a,b,prof)];
+      if(c&&c.geometry){ L.geoJSON(c.geometry,{style:{color:st.color,weight:3.5,opacity:.85,dashArray:st.dash||null}}).addTo(ROUTELAYER); drawn=true; }
+    }
+    if(!drawn){
+      L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:st.color,weight:3,dashArray:st.dash||'7 7',opacity:.8}).addTo(ROUTELAYER);
+    }
+    if(mode!=='car'){
+      const mid=[(a.lat+b.lat)/2,(a.lng+b.lng)/2];
+      L.marker(mid,{icon:L.divIcon({className:'',html:'<div class="modemark" style="color:'+st.color+'">'+ic(MODES[mode][0])+'</div>',iconSize:[28,28],iconAnchor:[14,14]}),interactive:false}).addTo(ROUTELAYER);
     }
   }
 }
 
 /* --- POI's bij klik op kaart --- */
-const POI_EMO={attraction:'🎯',tourist_attraction:'🎯',museum:'🏛️',viewpoint:'🌄',gallery:'🖼️',art_gallery:'🖼️',zoo:'🦁',theme_park:'🎢',amusement_park:'🎢',castle:'🏰',historical_landmark:'🏰',monument:'🗿',memorial:'🗿',ruins:'🏛️',restaurant:'🍽️',cafe:'☕',park:'🌳',church:'⛪'};
 let POIS=[];
 function poiPopupHtml(){
   return '<div class="poi-pop"><h4>In de buurt te doen:</h4>'+POIS.map((p,i)=>
     '<div class="poi-row">'+
-    (p.photo?'<img src="'+p.photo+'" alt="">':'<span>'+(POI_EMO[p.kind]||'📍')+'</span>')+
+    (p.photo?'<img src="'+p.photo+'" alt="">':ic(POI_ICON[p.kind]||'map-pin'))+
     '<span class="nm">'+esc(p.name)+
-    (p.rating?'<small>⭐ '+p.rating+(p.ratings?' ('+p.ratings+')':'')+(p.opens?' · opent '+p.opens:'')+'</small>':'')+
+    (p.rating?'<small>★ '+p.rating+(p.ratings?' ('+p.ratings+')':'')+(p.opens?' · opent '+p.opens:'')+'</small>':'')+
     '</span>'+
     (canEdit(cur)?'<button title="Toevoegen aan planning" onclick="addPoi('+i+')">+</button>':'')+'</div>').join('')+'</div>';
 }
 async function poiLookup(ll){
   const pop=L.popup({maxWidth:300}).setLatLng(ll).setContent('<div class="poi-pop">Zoeken wat hier te doen is…</div>').openOn(MAP);
   try{
-    if(GMAPS_KEY){ await poiGoogle(ll); } else { await poiOverpass(ll); }
+    POIS=[];
+    if(GMAPS_KEY){ try{ await poiGoogle(ll); }catch(e){ POIS=[]; } }
+    if(!POIS.length){ await poiOverpass(ll); }
     if(!POIS.length){ pop.setContent('<div class="poi-pop">Niets gevonden in de buurt.<br>Zoom in op een stad of bezienswaardigheid.</div>'); return; }
     pop.setContent(poiPopupHtml());
   }catch(e){ pop.setContent('<div class="poi-pop">Zoeken mislukt, probeer opnieuw.</div>'); }
@@ -845,75 +958,101 @@ function addPoi(i){
   const p=POIS[i]; if(!p) return;
   MAP.closePopup();
   const day=(daysOf(cur)[0])||'';
-  sheetAct(null,day,{title:p.name,lat:p.lat,lng:p.lng,addr:p.addr,opens:p.opens,type:(p.kind==='restaurant'||p.kind==='cafe')?'food':'act'});
+  sheetAct(null,day,{title:p.name,lat:p.lat,lng:p.lng,addr:p.addr,opens:p.opens,photo:p.photo,type:(p.kind==='restaurant'||p.kind==='cafe')?'food':'act'});
 }
 
-/* ================= ETAPPES (OSRM + Tesla) ================= */
+/* ================= ETAPPES (routering + voertuig) ================= */
 function legKey(a,b,mode){ return a.lat+','+a.lng+';'+b.lat+','+b.lng+';'+mode; }
-async function osrm(a,b,mode){
-  const key=legKey(a,b,mode);
+async function osrm(a,b,prof){
+  const key=legKey(a,b,prof);
   if(LEGCACHE[key]) return LEGCACHE[key];
-  const prof=mode==='foot'?'routed-foot':'routed-car';
+  const path=prof==='foot'?'routed-foot':prof==='bike'?'routed-bike':'routed-car';
   try{
-    const r=await fetch('https://routing.openstreetmap.de/'+prof+'/route/v1/driving/'+a.lng+','+a.lat+';'+b.lng+','+b.lat+'?overview='+(mode==='car'?'full':'false')+'&geometries=geojson');
+    const r=await fetch('https://routing.openstreetmap.de/'+path+'/route/v1/driving/'+a.lng+','+a.lat+';'+b.lng+','+b.lat+'?overview=full&geometries=geojson');
     const js=await r.json();
     if(js.code!=='Ok'||!js.routes||!js.routes[0]) throw 0;
     const rt=js.routes[0];
     LEGCACHE[key]={km:rt.distance/1000, min:rt.duration/60, geometry:rt.geometry};
   }catch(e){
-    /* fallback: hemelsbreed ×1.25, 80 km/u auto | 4.5 km/u te voet */
-    const R=6371, dLat=(b.lat-a.lat)*Math.PI/180, dLng=(b.lng-a.lng)*Math.PI/180;
-    const hv=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
-    const km=2*R*Math.asin(Math.sqrt(hv))*1.25;
-    LEGCACHE[key]={km, min:mode==='foot'?km/4.5*60:km/80*60, geometry:null, est:true};
+    /* terugval: hemelsbreed ×1.25 */
+    const km=havKm(a,b)*1.25;
+    LEGCACHE[key]={km, min:prof==='foot'?km/4.5*60:prof==='bike'?km/16*60:km/80*60, geometry:null, est:true};
   }
   return LEGCACHE[key];
 }
-function chargeStops(km){ return Math.max(0,Math.ceil(km/RANGE_KM)-1); }
+/* reisinfo per vervoermiddel */
+async function legInfo(a,b,mode){
+  mode=mode||'car';
+  if(mode==='car'||mode==='foot'||mode==='bike') return osrm(a,b,mode==='car'?'car':mode);
+  if(mode==='moto'||mode==='taxi') return osrm(a,b,'car');
+  if(mode==='bus'){ const c=await osrm(a,b,'car'); return {km:c.km,min:c.min*1.45,est:true}; }
+  const km=havKm(a,b); let min=km/(MODE_SPEED[mode]||80)*60;
+  if(mode==='plane') min+=60; /* taxiën, klimmen, landen — excl. inchecken */
+  return {km,min,est:true};
+}
+function chargeStops(km,mode){
+  if(mode!=='car'||SETTINGS.veh!=='ev') return 0;
+  return Math.max(0,Math.ceil(km/(+SETTINGS.range||330))-1);
+}
 async function computeLegs(){
   const ss=cur?cur.data.stops:[];
+  let totKm=0, totMin=0, totCh=0, any=false;
   for(let i=1;i<ss.length;i++){
-    const a=ss[i-1], b=ss[i];
+    const a=ss[i-1], b=ss[i], mode=b.mode||'car';
     const el=document.getElementById('leg-'+b.id);
-    if(a.lat==null||b.lat==null){ if(el) el.innerHTML='📍 locatie onbekend'; continue; }
-    const c=await osrm(a,b,'car');
+    if(a.lat==null||b.lat==null){ if(el) el.innerHTML=ic('map-pin')+' locatie onbekend'; continue; }
+    const c=await legInfo(a,b,mode);
     if(!cur) return;
-    const n=chargeStops(c.km);
+    const n=chargeStops(c.km,mode);
+    totKm+=c.km; totMin+=c.min+n*SETTINGS.charge; totCh+=n; any=true;
     const el2=document.getElementById('leg-'+b.id);
-    if(el2) el2.innerHTML='🚗 '+durTxt(c.min+n*CHARGE_MIN)+' · '+Math.round(c.km)+' km'+(n?' <span class="zap">⚡'+n+'</span>':'')+(c.est?' ≈':'');
+    if(el2) el2.innerHTML=ic(MODES[mode][0])+' '+durTxt(c.min+n*SETTINGS.charge)+' · '+Math.round(c.km)+' km'+(n?' <span class="zap">'+ic('bolt')+n+'</span>':'')+(c.est?' ≈':'');
     drawRoute();
   }
+  const st=document.getElementById('tripstats');
+  if(st&&any) st.innerHTML=ic('route')+' Totaal: '+Math.round(totKm)+' km · '+durTxt(totMin)+' onderweg'+(totCh?' · '+ic('bolt')+totCh+' laadstop'+(totCh>1?'s':''):'');
 }
 function sheetLeg(toId){
   const ss=cur.data.stops, i=ss.findIndex(x=>x.id===toId);
   if(i<1) return;
-  const a=ss[i-1], b=ss[i];
+  const a=ss[i-1], b=ss[i], mode=b.mode||'car', edit=canEdit(cur);
   const rs=stopRanges(cur); const dep=rs[i].from?fmtDY(rs[i].from):'';
   openSheet('<div class="leg-title">'+esc(a.name)+' <span class="lnk">○──●</span> '+esc(b.name)+'</div>'+
     '<div class="leg-sub">'+dep+'</div>'+
-    '<div id="legModes"><div class="mode-card"><span class="mi">🚗</span><div class="mm"><b>Auto (Tesla Model Y)</b><div class="s">berekenen…</div></div></div></div>'+
-    '<div class="field" style="margin-top:14px"><label>Vertrektijd</label><input id="f_dep" type="time" value="'+esc(b.depTime||'10:00')+'" '+(canEdit(cur)?'onchange="saveDepTime(\''+b.id+'\')"':'disabled')+'></div>'+
+    '<div class="field"><label>Vervoermiddel</label><div class="type-pick">'+
+      Object.entries(MODES).map(([k,v])=>'<button class="'+(k===mode?'on':'')+'" '+(edit?'onclick="saveLegMode(\''+b.id+'\',\''+k+'\')"':'disabled')+'>'+ic(v[0])+' '+v[1]+'</button>').join('')+
+    '</div></div>'+
+    '<div id="legModes"></div>'+
+    '<div class="field" style="margin-top:14px"><label>Vertrektijd</label><input id="f_dep" type="time" value="'+esc(b.depTime||'10:00')+'" '+(edit?'onchange="saveDepTime(\''+b.id+'\')"':'disabled')+'></div>'+
     '<div class="arrive-line" id="arriveLine">Aankomst: —</div>'+
-    '<div class="btns"><a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" href="'+((a.lat!=null&&b.lat!=null)?dirUrl(a,b):'#')+'">🧭 Open in Maps</a>'+
+    '<div class="field" style="margin-top:12px"><label>Notitie (vluchtnr, perron, laadplan…)</label><input id="f_legnote" value="'+esc(b.legNote||'')+'" '+(edit?'onchange="saveLegNote(\''+b.id+'\')"':'readonly')+'></div>'+
+    '<div class="btns"><a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" href="'+((a.lat!=null&&b.lat!=null)?dirUrl(a,b):'#')+'">'+ic('navigation')+' Open in Maps</a>'+
     '<button class="btn primary" onclick="closeSheet()">Sluiten</button></div>');
   fillLegSheet(a,b);
 }
 async function fillLegSheet(a,b){
   const box=document.getElementById('legModes');
-  if(a.lat==null||b.lat==null){ if(box) box.innerHTML='<div class="mode-card"><span class="mi">📍</span><div class="mm"><b>Locatie onbekend</b></div></div>'; return; }
-  const car=await osrm(a,b,'car');
-  const n=chargeStops(car.km);
-  let h='<div class="mode-card"><span class="mi">🚗</span><div class="mm"><b>Auto (Tesla Model Y)</b>'+
-    '<div class="s">'+durTxt(car.min)+' rijden · '+Math.round(car.km)+' km'+(car.est?' (schatting)':'')+'</div></div></div>';
-  if(n) h+='<div class="charge">⚡ Etappe langer dan '+RANGE_KM+' km — plan ± '+n+' laadstop'+(n>1?'s':'')+' (± '+n*CHARGE_MIN+' min extra, Superchargers langs de route)</div>';
-  if(car.km<=25){
-    const ft=await osrm(a,b,'foot');
-    h+='<div class="mode-card"><span class="mi">🚶</span><div class="mm"><b>Te voet</b><div class="s">'+durTxt(ft.min)+' · '+Math.round(ft.km*10)/10+' km</div></div></div>';
-  } else {
-    h+='<div class="mode-card" style="opacity:.55"><span class="mi">🚶</span><div class="mm"><b>Te voet</b><div class="s">te ver om te stappen ('+Math.round(car.km)+' km)</div></div></div>';
+  if(a.lat==null||b.lat==null){ if(box) box.innerHTML='<div class="mode-card"><span class="mi">'+ic('map-pin')+'</span><div class="mm"><b>Locatie onbekend</b></div></div>'; return; }
+  const mode=b.mode||'car';
+  const c=await legInfo(a,b,mode);
+  const lbl=mode==='car'?(SETTINGS.veh==='ev'?'Auto (elektrisch)':'Auto'):MODES[mode][1];
+  let h='<div class="mode-card"><span class="mi">'+ic(MODES[mode][0])+'</span><div class="mm"><b>'+lbl+'</b>'+
+    '<div class="s">'+durTxt(c.min)+' · '+Math.round(c.km)+' km'+(c.est?' (schatting'+(mode==='plane'?', excl. inchecken':'')+')':'')+'</div></div></div>';
+  let extra=0;
+  if(mode==='car'){
+    const n=chargeStops(c.km,mode); extra=n*SETTINGS.charge;
+    if(n) h+='<div class="charge">'+ic('bolt')+' Etappe langer dan '+SETTINGS.range+' km — plan ± '+n+' laadstop'+(n>1?'s':'')+' (± '+extra+' min extra)</div>';
+    if(c.km<=25){
+      const ft=await osrm(a,b,'foot');
+      h+='<div class="mode-card"><span class="mi">'+ic('walk')+'</span><div class="mm"><b>Te voet</b><div class="s">'+durTxt(ft.min)+' · '+Math.round(ft.km*10)/10+' km</div></div></div>';
+    }
+    if(c.km<=60){
+      const bk=await osrm(a,b,'bike');
+      h+='<div class="mode-card"><span class="mi">'+ic('bike')+'</span><div class="mm"><b>Fiets</b><div class="s">'+durTxt(bk.min)+' · '+Math.round(bk.km)+' km</div></div></div>';
+    }
   }
   const el=document.getElementById('legModes'); if(el) el.innerHTML=h;
-  updateArrive(b,car.min+n*CHARGE_MIN);
+  updateArrive(b,c.min+extra);
 }
 function updateArrive(b,totMin){
   const el=document.getElementById('arriveLine'); if(!el) return;
@@ -921,6 +1060,18 @@ function updateArrive(b,totMin){
   const dm=hmToMin(depEl?depEl.value:null);
   el.textContent = dm==null ? 'Aankomst: —' : 'Vertrek '+minToHm(dm)+' → aankomst ± '+minToHm(dm+totMin)+' ('+durTxt(totMin)+' onderweg)';
   el.dataset.tot=totMin;
+}
+async function saveLegMode(stopId,mode){
+  const s=cur.data.stops.find(x=>x.id===stopId);
+  s.mode=mode;
+  await pushData();
+  sheetLeg(stopId);
+  computeLegs();
+}
+async function saveLegNote(stopId){
+  const s=cur.data.stops.find(x=>x.id===stopId);
+  s.legNote=document.getElementById('f_legnote').value.trim();
+  await pushData();
 }
 async function saveDepTime(stopId){
   const s=cur.data.stops.find(x=>x.id===stopId);
@@ -931,33 +1082,130 @@ async function saveDepTime(stopId){
 }
 
 /* ================= DAGEN-TAB ================= */
+function dayRouteUrl(d,acts){
+  const pts=(acts||cur.data.acts.filter(a=>a.day===d)).filter(a=>a.lat!=null).map(a=>a.lat+','+a.lng);
+  if(!pts.length) return null;
+  const hot=hotelForDay(cur,d)||hotelForDay(cur,addDays(d,-1));
+  let origin, route;
+  if(hot&&hot.lat!=null){ origin=hot.lat+','+hot.lng; route=pts; }
+  else if(pts.length>1){ origin=pts[0]; route=pts.slice(1); }
+  else return null;
+  const dest=route[route.length-1];
+  const wps=route.slice(0,-1).join('|');
+  return 'https://www.google.com/maps/dir/?api=1&origin='+origin+'&destination='+dest+(wps?'&waypoints='+encodeURIComponent(wps):'');
+}
 function renderDays(){
   const t=cur, days=daysOf(t), edit=canEdit(t), rs=stopRanges(t);
-  if(!days.length) return '<div class="empty"><div class="big">📅</div>Stel eerst start- en einddatum in (tik bovenaan op de datum-knop).</div>';
+  if(!days.length) return '<div class="empty"><div class="big">'+ic('calendar')+'</div>Stel eerst start- en einddatum in (tik bovenaan op de datum-knop).</div>';
+  const today=new Date().toISOString().slice(0,10);
   let h='';
   days.forEach((d,i)=>{
     const where=rs.filter(r=>rangeDays(r).includes(d)).map(r=>r.stop.name).join(' → ');
-    const acts=t.data.acts.filter(a=>a.day===d).sort((a,b)=>(a.time||a.opens||'99').localeCompare(b.time||b.opens||'99'));
+    const acts=sortActs(t.data.acts.filter(a=>a.day===d));
+    const rurl=dayRouteUrl(d,acts);
     h+='<div class="day-head" id="day-'+d+'"><span class="n">Dag '+(i+1)+'</span><span class="d">'+fmtDagLang(d)+'</span>'+
-       (where?'<span class="where">📍 '+esc(where)+'</span>':'')+
-       (edit?'<button class="add" onclick="sheetAct(null,\''+d+'\')">+ item</button>':'')+'</div>';
-    if(!acts.length) h+='<div class="card" style="color:var(--muted);font-size:13px">Nog niets gepland.</div>';
-    acts.forEach(a=>{
-      const ic=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
-      h+='<div class="card">'+(edit?
-        '<button class="kebab" style="right:76px" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">‹</button>'+
-        '<button class="kebab" style="right:42px" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">›</button>'+
-        '<button class="kebab" onclick="sheetAct(\''+a.id+'\')">✎</button>':'')+
-        '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+(a.end?'<div style="color:var(--muted);font-size:11px;font-weight:600">tot '+esc(a.end)+'</div>':'')+'</div><div class="body">'+
-        '<h4>'+ic+' '+esc(a.title)+'</h4>'+
-        (a.opens?'<span class="opens-tag">🕐 opent om '+esc(a.opens)+'</span>':'')+
-        (a.addr?'<div class="addr">📍 '+esc(a.addr)+'</div><a class="maplink" target="_blank" href="'+mapsUrl(a.addr)+'">🗺️ Kaarten</a><a class="maplink" target="_blank" href="'+gmapsUrl(a.addr)+'">🌐 Google Maps</a>':'')+
-        (a.note?'<div class="note">'+esc(a.note)+'</div>':'')+
-        '<div class="dep" id="dep-'+a.id+'"></div>'+
-        '</div></div></div>';
-    });
+       (d===today?'<span class="badge now">Vandaag</span>':'')+
+       '<span class="where" id="wx-'+d+'"></span>'+
+       (where?'<span class="where">'+ic('map-pin')+' '+esc(where)+'</span>':'')+
+       (rurl?'<a class="add" style="text-decoration:none;margin-left:auto" target="_blank" href="'+rurl+'" title="Dagroute in Google Maps">'+ic('navigation')+'</a>':'')+
+       (edit?'<button class="add" style="'+(rurl?'margin-left:6px':'margin-left:auto')+'" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+' item</button>':'')+'</div>';
+    h+=buildActCards(acts,edit);
   });
   return h;
+}
+/* activiteitskaarten van één dag (gedeeld door Dagen- en Vandaag-tab) */
+function buildActCards(acts,edit){
+  let h='';
+  if(!acts.length) h+='<div class="card" style="color:var(--muted);font-size:13px">Nog niets gepland.</div>';
+  let prev=null;
+  acts.forEach(a=>{
+    const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
+    if(prev) h+='<div class="trav" id="trav-'+a.id+'"></div>';
+    const overlap=prev&&a.time&&((prev.end&&a.time<prev.end)||(!prev.end&&prev.time&&prev.time===a.time));
+    h+='<div class="card">'+(edit?
+      '<button class="kebab" style="right:76px" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">'+ic('chevron-left')+'</button>'+
+      '<button class="kebab" style="right:42px" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">'+ic('chevron-right')+'</button>'+
+      '<button class="kebab" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':'')+
+      '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+(a.end?'<div class="end">tot '+esc(a.end)+'</div>':'')+'</div><div class="body">'+
+      '<h4>'+ic(icn)+' '+esc(a.title)+'</h4>'+
+      (overlap?'<div class="overlap">Let op: overlapt met vorige activiteit</div>':'')+
+      (a.opens?'<span class="opens-tag">opent om '+esc(a.opens)+'</span>':'')+
+      (a.addr?'<div class="addr">'+ic('map-pin')+' '+esc(a.addr)+'</div><a class="maplink" target="_blank" href="'+mapsUrl(a.addr)+'">Kaarten</a><a class="maplink" target="_blank" href="'+gmapsUrl(a.addr)+'">Google Maps</a>':'')+
+      (a.note?'<div class="note">'+esc(a.note)+'</div>':'')+
+      '<div class="dep" id="dep-'+a.id+'"></div>'+
+      '</div>'+(a.photo?'<img class="actph" src="'+a.photo+'" alt="">':'')+'</div></div>';
+    prev=a;
+  });
+  return h;
+}
+
+/* ================= VANDAAG-TAB ================= */
+function renderToday(){
+  const t=cur, days=daysOf(t), edit=canEdit(t);
+  if(!days.length) return '<div class="empty"><div class="big">'+ic('sun')+'</div>Stel eerst start- en einddatum in.</div>';
+  const today=new Date().toISOString().slice(0,10);
+  if(!dayView||!days.includes(dayView)) dayView=days.includes(today)?today:days[0];
+  const d=dayView, i=days.indexOf(d);
+  const rs=stopRanges(t);
+  const rsToday=rs.filter(r=>rangeDays(r).includes(d));
+  const where=rsToday.map(r=>r.stop.name).join(' → ');
+  const hot=hotelForDay(t,d);
+  const acts=sortActs(t.data.acts.filter(a=>a.day===d));
+  const rurl=dayRouteUrl(d,acts);
+  let h='<div class="seg" style="margin-bottom:12px">'+
+    '<button '+(i<=0?'disabled style="opacity:.4"':'onclick="dayShift(-1)"')+'>'+ic('chevron-left')+' vorige</button>'+
+    '<button class="on" onclick="dayGotoToday()">'+(d===today?'Vandaag':'Naar vandaag')+'</button>'+
+    '<button '+(i>=days.length-1?'disabled style="opacity:.4"':'onclick="dayShift(1)"')+'>volgende '+ic('chevron-right')+'</button></div>';
+  /* samenvatting van de dag */
+  h+='<div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+    '<span class="badge now" style="font-size:12px">Dag '+(i+1)+'</span>'+
+    '<b style="font-size:16px">'+fmtDagLang(d)+'</b>'+
+    '<span class="where" id="wx-'+d+'"></span>'+
+    (d===today?'<span class="badge soon">vandaag</span>':'')+
+    '</div>'+
+    (where?'<div style="margin-top:8px;font-size:14px;font-weight:600">'+ic('map-pin')+' '+esc(where)+'</div>':'')+
+    (hot?'<div style="margin-top:6px;font-size:14px;font-weight:600">'+ic('bed')+' '+esc(hot.name)+(hot.addr?' <span style="color:var(--muted);font-weight:500">· '+esc(hot.addr)+'</span>':'')+'</div>':'')+
+    '<div style="margin-top:6px;font-size:13px;color:var(--muted);font-weight:600">'+ic('target')+' '+acts.length+' activiteit'+(acts.length===1?'':'en')+' gepland</div>'+
+    (rurl?'<a class="maplink" target="_blank" href="'+rurl+'">'+ic('navigation')+' Dagroute in Google Maps</a>':'')+
+    '</div>';
+  /* reis-etappe die vandaag start */
+  const idx=rs.findIndex(r=>r.from===d&&rs.indexOf(r)>0);
+  if(idx>0){
+    const a=rs[idx-1].stop, b=rs[idx].stop, mode=b.mode||'car';
+    h+='<div class="card"><div class="exp"><span class="ic">'+ic(MODES[mode][0])+'</span><div class="body">'+
+      '<h4>Reisdag: '+esc(a.name)+' → '+esc(b.name)+'</h4>'+
+      '<div class="sub2" id="dv-leg" data-to="'+b.id+'">berekenen…</div>'+
+      (b.legNote?'<div class="sub2">'+esc(b.legNote)+'</div>':'')+
+      '</div><button class="chip add" onclick="sheetLeg(\''+b.id+'\')">details</button></div></div>';
+  }
+  h+='<div class="section-title">Programma</div>';
+  h+=buildActCards(acts,edit);
+  if(edit) h+='<button class="fab" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>';
+  return h;
+}
+function dayShift(n){
+  const days=daysOf(cur); const i=days.indexOf(dayView);
+  const j=Math.min(days.length-1,Math.max(0,i+n));
+  dayView=days[j]; render(); window.scrollTo(0,0);
+}
+function dayGotoToday(){
+  const days=daysOf(cur); const td=new Date().toISOString().slice(0,10);
+  dayView=days.includes(td)?td:days[0]; render();
+}
+async function computeDayLeg(){
+  const el=document.getElementById('dv-leg'); if(!el||!cur) return;
+  const b=cur.data.stops.find(x=>x.id===el.dataset.to); if(!b) return;
+  const i=cur.data.stops.indexOf(b); if(i<1) return;
+  const a=cur.data.stops[i-1];
+  if(a.lat==null||b.lat==null){ el.textContent='locatie onbekend'; return; }
+  const mode=b.mode||'car';
+  const c=await legInfo(a,b,mode);
+  const n=chargeStops(c.km,mode);
+  const el2=document.getElementById('dv-leg'); if(!el2) return;
+  let txt=durTxt(c.min+n*SETTINGS.charge)+' · '+Math.round(c.km)+' km'+(n?' · '+n+' laadstop'+(n>1?'s':''):'')+(c.est?' (schatting)':'');
+  const dm=hmToMin(b.depTime);
+  if(dm!=null) txt+=' — vertrek '+minToHm(dm)+' → aankomst ± '+minToHm(dm+c.min+n*SETTINGS.charge);
+  el2.textContent=txt;
 }
 /* vertrekadvies: reistijd hotel → activiteit met openingsuur */
 async function computeDepartures(){
@@ -971,20 +1219,70 @@ async function computeDepartures(){
     const el=document.getElementById('dep-'+a.id);
     if(!el) continue;
     const dep=hmToMin(target)-Math.ceil(c.min)-BUFFER_MIN;
-    el.innerHTML='🚗 Vanaf 🛏️ '+esc(hot.name)+': '+durTxt(c.min)+' rijden'+(c.est?' (≈)':'')+' → <b>vertrek uiterlijk '+minToHm(dep)+'</b>';
+    el.innerHTML=ic('car')+' Vanaf '+esc(hot.name)+': '+durTxt(c.min)+' rijden'+(c.est?' (≈)':'')+' → <b>vertrek uiterlijk '+minToHm(dep)+'</b>';
     el.classList.add('show');
     if(c.km<=6){
       const ft=await osrm(hot,a,'foot');
       const dep2=hmToMin(target)-Math.ceil(ft.min)-BUFFER_MIN;
-      el.innerHTML+='<br>🚶 Of te voet: '+durTxt(ft.min)+' → vertrek '+minToHm(dep2);
+      el.innerHTML+='<br>'+ic('walk')+' Of te voet: '+durTxt(ft.min)+' → vertrek '+minToHm(dep2);
     }
+  }
+}
+/* reistijd tussen opeenvolgende activiteiten */
+async function computeTravel(){
+  if(!cur) return;
+  for(const d of daysOf(cur)){
+    const acts=sortActs(cur.data.acts.filter(a=>a.day===d));
+    for(let i=1;i<acts.length;i++){
+      const p=acts[i-1], a=acts[i];
+      if(p.lat==null||a.lat==null) continue;
+      const el=document.getElementById('trav-'+a.id); if(!el) continue;
+      const c=await osrm(p,a,'car');
+      let txt=ic('car')+' '+durTxt(c.min);
+      if(c.km<=6){ const f=await osrm(p,a,'foot'); txt+=' · '+ic('walk')+' '+durTxt(f.min); }
+      const el2=document.getElementById('trav-'+a.id);
+      if(el2){ el2.innerHTML=txt+' · '+(Math.round(c.km*10)/10)+' km'; el2.style.display='block'; }
+    }
+  }
+}
+/* weer per dag (Open-Meteo, gratis) */
+function wmoIcon(c){
+  if(c<=1) return 'sun';
+  if(c<=3) return 'cloud';
+  if(c<=48) return 'mist';
+  if(c<=67) return 'cloud-rain';
+  if(c<=77) return 'cloud-snow';
+  if(c<=82) return 'cloud-rain';
+  if(c<=86) return 'cloud-snow';
+  return 'cloud-storm';
+}
+async function computeWeather(){
+  if(!cur) return;
+  const today=new Date().toISOString().slice(0,10), maxD=addDays(today,15);
+  for(const r of stopRanges(cur)){
+    const s=r.stop; if(s.lat==null) continue;
+    const ds=rangeDays(r).filter(d=>d>=today&&d<=maxD);
+    if(!ds.length) continue;
+    const key=s.lat.toFixed(2)+','+s.lng.toFixed(2)+':'+ds[0];
+    if(!WEATHER[key]){
+      try{
+        const rq=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+s.lat+'&longitude='+s.lng+'&daily=weather_code,temperature_2m_max&timezone=auto&start_date='+ds[0]+'&end_date='+ds[ds.length-1]);
+        const js=await rq.json();
+        const o={}; ((js.daily&&js.daily.time)||[]).forEach((d,i)=>{ o[d]={c:js.daily.weather_code[i],mx:js.daily.temperature_2m_max[i]}; });
+        WEATHER[key]=o;
+      }catch(e){ WEATHER[key]={}; }
+    }
+    ds.forEach(d=>{
+      const w=WEATHER[key][d], el=document.getElementById('wx-'+d);
+      if(w&&el) el.innerHTML=ic(wmoIcon(w.c))+' '+Math.round(w.mx)+'°';
+    });
   }
 }
 
 /* ================= KALENDER-TAB ================= */
 function renderCal(){
   const t=cur, days=daysOf(t);
-  if(!days.length) return '<div class="empty"><div class="big">🗓️</div>Stel eerst start- en einddatum in.</div>';
+  if(!days.length) return '<div class="empty"><div class="big">'+ic('calendar-month')+'</div>Stel eerst start- en einddatum in.</div>';
   const rs=stopRanges(t);
   const colorOf={}; rs.forEach((r,i)=>rangeDays(r).forEach(d=>{ colorOf[d]=STOPCOLORS[i%STOPCOLORS.length]; }));
   const months={};
@@ -1023,32 +1321,33 @@ function renderBudget(){
   if(cats.length){
     h+='<div class="card">'+cats.map(c=>{
       const pair=EXP_CATS[c]||EXP_CATS.other;
-      return '<div class="bud-cat"><span>'+pair[0]+' '+pair[1]+'</span><b>'+eur(perCat[c])+'</b></div>';
+      return '<div class="bud-cat"><span>'+ic(pair[0])+' '+pair[1]+'</span><b>'+eur(perCat[c])+'</b></div>';
     }).join('')+'</div>';
   }
-  if(!exps.length) h+='<div class="empty"><div class="big">💶</div>Nog geen uitgaven.'+(edit?'<br>Tik op <b>+</b> om er een toe te voegen.':'')+'</div>';
+  if(!exps.length) h+='<div class="empty"><div class="big">'+ic('wallet')+'</div>Nog geen uitgaven.'+(edit?'<br>Tik op <b>+</b> om er een toe te voegen.':'')+'</div>';
   exps.forEach(x=>{
-    const ic=(EXP_CATS[x.cat]||EXP_CATS.other)[0];
-    h+='<div class="card">'+(edit?'<button class="kebab" onclick="sheetExp(\''+x.id+'\')">✎</button>':'')+
-      '<div class="exp"><span class="ic">'+ic+'</span><div class="body"><h4>'+esc(x.desc)+'</h4>'+
+    const icn=(EXP_CATS[x.cat]||EXP_CATS.other)[0];
+    h+='<div class="card">'+(edit?'<button class="kebab" onclick="sheetExp(\''+x.id+'\')">'+ic('pencil')+'</button>':'')+
+      '<div class="exp"><span class="ic">'+ic(icn)+'</span><div class="body"><h4>'+esc(x.desc)+'</h4>'+
       '<div class="sub2">'+(x.day?fmtDY(x.day):'')+'</div></div><span class="amt" style="margin-right:'+(edit?'26':'0')+'px">'+eur(+x.amount||0)+'</span></div></div>';
   });
-  if(edit) h+='<button class="fab" onclick="sheetExp()">+</button>';
+  if(edit) h+='<button class="fab" onclick="sheetExp()">'+ic('plus')+'</button>';
   return h;
 }
 
 /* ================= LIJSTEN-TAB ================= */
 function renderLists(){
   const t=cur, edit=canEdit(t);
-  let h='<div class="seg"><button class="'+(listMode==='todos'?'on':'')+'" onclick="listMode=\'todos\';render()">✅ To-do</button>'+
-    '<button class="'+(listMode==='pack'?'on':'')+'" onclick="listMode=\'pack\';render()">🎒 Paklijst</button></div>';
+  let h='<div class="seg"><button class="'+(listMode==='todos'?'on':'')+'" onclick="listMode=\'todos\';render()">'+ic('list-check')+' To-do</button>'+
+    '<button class="'+(listMode==='pack'?'on':'')+'" onclick="listMode=\'pack\';render()">'+ic('backpack')+' Paklijst</button></div>';
   const arr=t.data[listMode];
-  if(edit) h+='<div class="inline-add"><input id="listIn" placeholder="'+(listMode==='todos'?'Bijv. reisverzekering regelen…':'Bijv. zonnecrème…')+'" onkeydown="if(event.key===\'Enter\')addListItem()"><button onclick="addListItem()">+</button></div>';
-  if(!arr.length) h+='<div class="empty"><div class="big">'+(listMode==='todos'?'✅':'🎒')+'</div>Nog leeg.</div>';
+  if(edit) h+='<div class="inline-add"><input id="listIn" placeholder="'+(listMode==='todos'?'Bijv. reisverzekering regelen…':'Bijv. zonnecrème…')+'" onkeydown="if(event.key===\'Enter\')addListItem()"><button onclick="addListItem()">'+ic('plus')+'</button></div>';
+  if(edit&&listMode==='pack') h+='<div style="margin:-6px 0 12px"><button class="chip add" onclick="addPackSuggestions()">'+ic('sparkles')+' Vul aan met standaard paklijst</button></div>';
+  if(!arr.length) h+='<div class="empty"><div class="big">'+ic(listMode==='todos'?'list-check':'backpack')+'</div>Nog leeg.</div>';
   const open=arr.filter(x=>!x.done), done=arr.filter(x=>x.done);
   [...open,...done].forEach(x=>{
     h+='<div class="card todo '+(x.done?'done':'')+'"><input type="checkbox" '+(x.done?'checked':'')+' '+(edit?'':'disabled')+' onchange="toggleListItem(\''+x.id+'\')"><span>'+esc(x.text)+'</span>'+
-       (edit?'<button class="del" onclick="delListItem(\''+x.id+'\')">🗑</button>':'')+'</div>';
+       (edit?'<button class="del" onclick="delListItem(\''+x.id+'\')">'+ic('trash')+'</button>':'')+'</div>';
   });
   return h;
 }
@@ -1058,6 +1357,11 @@ async function addListItem(){
 }
 async function toggleListItem(id){ const x=cur.data[listMode].find(y=>y.id===id); x.done=!x.done; await pushData(); render(); }
 async function delListItem(id){ cur.data[listMode]=cur.data[listMode].filter(y=>y.id!==id); await pushData(); render(); }
+async function addPackSuggestions(){
+  const have=new Set(cur.data.pack.map(x=>x.text.toLowerCase()));
+  PACK_SUG.forEach(t=>{ if(!have.has(t.toLowerCase())) cur.data.pack.push({id:uid(),text:t,done:false}); });
+  await pushData(); render();
+}
 
 /* ================= LEDEN & DELEN ================= */
 async function loadMembers(){
@@ -1074,15 +1378,16 @@ async function loadMembers(){
 }
 function sheetShare(){
   const t=cur, owner=t.owner===user.id;
-  let h='<h2>↗ Reis delen</h2>';
+  let h='<h2>'+ic('share')+' Reis delen</h2>';
   if(owner){
     h+='<div class="field"><label>E-mailadres genodigde</label><input id="invIn" type="email" placeholder="naam@voorbeeld.be"></div>'+
-      '<div class="field"><label>Rol</label><select id="invRole"><option value="viewer">👀 Kijker — mag alles zien</option><option value="editor">✏️ Bewerker — plant mee</option></select></div>'+
+      '<div class="field"><label>Rol</label><select id="invRole"><option value="viewer">Kijker — mag alles zien</option><option value="editor">Bewerker — plant mee</option></select></div>'+
       '<button class="btn primary" style="width:100%" onclick="invite()">Uitnodigen</button>';
   }
   h+='<div class="section-title" style="margin-top:20px">Wie heeft toegang</div><div id="memberList">Laden…</div>';
   if(!owner) h+='<div class="btns"><button class="btn danger" style="flex:1" onclick="leaveTrip()">Reis verlaten</button></div>';
-  h+='<div class="btns"><button class="btn ghost" onclick="closeSheet()">Sluiten</button></div>';
+  h+='<div class="btns"><button class="btn ghost" onclick="exportIcs()">'+ic('calendar-plus')+' Agenda (.ics)</button>'+
+     '<button class="btn ghost" onclick="closeSheet()">Sluiten</button></div>';
   openSheet(h);
   renderMemberList();
 }
@@ -1093,11 +1398,11 @@ async function renderMemberList(){
   let h='<div class="member"><span class="em"><b>'+(owner?esc(user.email):'Eigenaar')+'</b></span><span class="rl">eigenaar</span></div>';
   cur._members.forEach(x=>{
     h+='<div class="member"><span class="em">'+esc(x.email||x.user_id)+'</span><span class="rl">'+(x.role==='editor'?'bewerker':'kijker')+'</span>'+
-      (owner?'<button title="Verwijderen" onclick="removeMember(\''+x.user_id+'\')">✕</button>':'')+'</div>';
+      (owner?'<button title="Verwijderen" onclick="removeMember(\''+x.user_id+'\')">'+ic('x')+'</button>':'')+'</div>';
   });
   if(owner){
     const {data:inv}=await sb.from('trip_invites').select('id,email,role').eq('trip_id',cur.id);
-    (inv||[]).forEach(x=>{ h+='<div class="member"><span class="em">'+esc(x.email)+'</span><span class="rl">uitgenodigd ('+(x.role==='editor'?'bewerker':'kijker')+')</span><button title="Intrekken" onclick="removeInvite(\''+x.id+'\')">✕</button></div>'; });
+    (inv||[]).forEach(x=>{ h+='<div class="member"><span class="em">'+esc(x.email)+'</span><span class="rl">uitgenodigd ('+(x.role==='editor'?'bewerker':'kijker')+')</span><button title="Intrekken" onclick="removeInvite(\''+x.id+'\')">'+ic('x')+'</button></div>'; });
   }
   el.innerHTML=h;
 }
@@ -1105,7 +1410,7 @@ async function invite(){
   const el=document.getElementById('invIn'); const email=el.value.trim().toLowerCase();
   const role=document.getElementById('invRole').value;
   if(!/^\S+@\S+\.\S+$/.test(email)){ alert('Geef een geldig e-mailadres.'); return; }
-  if(email===user.email){ alert('Dat ben je zelf 🙂'); return; }
+  if(email===user.email){ alert('Dat ben je zelf.'); return; }
   const {error}=await sb.from('trip_invites').insert({trip_id:cur.id,email,role});
   if(error){ alert('Uitnodigen mislukt: '+error.message); return; }
   el.value='';
@@ -1124,11 +1429,29 @@ function exportData(){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='travai-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
 }
+/* agenda-export: alle activiteiten als agendapunten */
+function exportIcs(){
+  let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//TravAI//NL\r\n';
+  const clean=s=>(s||'').replace(/[\r\n;,\\]/g,' ');
+  cur.data.acts.filter(a=>a.day).forEach(a=>{
+    const dt=a.day.replace(/-/g,'');
+    const st=(a.time||'09:00').replace(':','')+'00';
+    const en=(a.end||a.time||'10:00').replace(':','')+'00';
+    ics+='BEGIN:VEVENT\r\nUID:'+a.id+'@travai\r\nDTSTART:'+dt+'T'+st+'\r\nDTEND:'+dt+'T'+en+'\r\nSUMMARY:'+clean(a.title)+'\r\n'+(a.addr?'LOCATION:'+clean(a.addr)+'\r\n':'')+(a.note?'DESCRIPTION:'+clean(a.note)+'\r\n':'')+'END:VEVENT\r\n';
+  });
+  cur.data.hotels.filter(h=>h.cin).forEach(x=>{
+    ics+='BEGIN:VEVENT\r\nUID:'+x.id+'@travai\r\nDTSTART;VALUE=DATE:'+x.cin.replace(/-/g,'')+'\r\nDTEND;VALUE=DATE:'+(x.cout||x.cin).replace(/-/g,'')+'\r\nSUMMARY:Verblijf '+clean(x.name)+'\r\n'+(x.addr?'LOCATION:'+clean(x.addr)+'\r\n':'')+'END:VEVENT\r\n';
+  });
+  ics+='END:VCALENDAR\r\n';
+  const blob=new Blob([ics],{type:'text/calendar'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=(cur.name||'reis').replace(/\W+/g,'-')+'.ics'; a.click();
+}
 
 /* ================= NOTITIES ================= */
 function sheetNotes(){
   const edit=canEdit(cur);
-  openSheet('<h2>📝 Notities</h2>'+
+  openSheet('<h2>'+ic('notes')+' Notities</h2>'+
     '<div class="field"><textarea id="tripNotes" rows="8" placeholder="Vluchtnummers, tips, noodinfo…" '+(edit?'':'readonly')+'>'+esc(cur.data.notes)+'</textarea></div>'+
     '<div class="btns"><button class="btn ghost" onclick="closeSheet()">Sluiten</button>'+
     (edit?'<button class="btn primary" onclick="saveNotes()">Bewaar</button>':'')+'</div>');
@@ -1141,8 +1464,8 @@ overlay.addEventListener('click',e=>{ if(e.target===overlay) closeSheet(); });
 function openSheet(html){ sheet.innerHTML=html; overlay.classList.add('show'); }
 function closeSheet(){ overlay.classList.remove('show'); }
 
-let pickedEmoji='✈️', pickedType='act', pickedCat='other';
-function pickEmoji(e,b){ pickedEmoji=e; sheet.querySelectorAll('.emoji-pick button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }
+let pickedIcon='plane', pickedType='act', pickedCat='other';
+function pickIcon(e,b){ pickedIcon=e; sheet.querySelectorAll('.emoji-pick button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }
 function pickType(t,b){ pickedType=t; sheet.querySelectorAll('.type-pick button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }
 function pickCat(c,b){ pickedCat=c; sheet.querySelectorAll('.type-pick button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }
 
@@ -1161,14 +1484,14 @@ async function geocode(addr){
 /* --- reis --- */
 function sheetTrip(id){
   const t=id?trips.find(x=>x.id===id):null;
-  pickedEmoji=t?(t.emoji||'✈️'):'✈️';
+  pickedIcon=(t&&/^[a-z0-9-]+$/.test(t.emoji||''))?t.emoji:'plane';
   openSheet('<h2>'+(t?'Reis bewerken':'Nieuwe reis')+'</h2>'+
     '<div class="field"><label>Naam van de reis</label><input id="f_name" placeholder="Bijv. Roadtrip Duitsland" value="'+esc(t?t.name:'')+'"></div>'+
     '<div class="field"><label>Bestemming (algemeen)</label><input id="f_dest" placeholder="Bijv. Duitsland" value="'+esc(t?t.dest:'')+'"></div>'+
     '<div class="row2"><div class="field"><label>Vertrek</label><input id="f_start" type="date" value="'+(t?(t.start_date||''):'')+'"></div>'+
     '<div class="field"><label>Terug</label><input id="f_end" type="date" value="'+(t?(t.end_date||''):'')+'"></div></div>'+
-    '<div class="field"><label>Icoon</label><div class="emoji-pick">'+EMOJIS.map(e=>'<button class="'+(e===pickedEmoji?'on':'')+'" onclick="pickEmoji(\''+e+'\',this)">'+e+'</button>').join('')+'</div></div>'+
-    '<div class="btns">'+(t&&t.owner===user.id?'<button class="btn danger" onclick="delTrip(\''+t.id+'\')">🗑</button>':'')+
+    '<div class="field"><label>Icoon</label><div class="emoji-pick">'+TRIP_ICONS.map(e=>'<button class="'+(e===pickedIcon?'on':'')+'" onclick="pickIcon(\''+e+'\',this)">'+ic(e)+'</button>').join('')+'</div></div>'+
+    '<div class="btns">'+(t&&t.owner===user.id?'<button class="btn danger" onclick="delTrip(\''+t.id+'\')">'+ic('trash')+'</button>':'')+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveTrip(\''+(t?t.id:'')+'\')">Bewaar</button></div>');
 }
@@ -1177,7 +1500,7 @@ async function saveTrip(id){
   if(!name){ alert('Geef de reis een naam.'); return; }
   let start=document.getElementById('f_start').value||null, end=document.getElementById('f_end').value||null;
   if(start&&end&&end<start){ const tmp=start; start=end; end=tmp; }
-  const row={name, dest:document.getElementById('f_dest').value.trim(), start_date:start, end_date:end, emoji:pickedEmoji, updated_at:new Date().toISOString()};
+  const row={name, dest:document.getElementById('f_dest').value.trim(), start_date:start, end_date:end, emoji:pickedIcon, updated_at:new Date().toISOString()};
   let error, newId=null;
   if(id){ ({error}=await sb.from('trips').update(row).eq('id',id)); }
   else {
@@ -1197,7 +1520,7 @@ async function delTrip(id){
 }
 
 /* --- planning-item --- */
-let actTimer=null, ACTRES=[], ACTPICK=null;
+let actTimer=null, ACTRES=[], ACTPICK=null, ACTPHOTO=null;
 function actInput(v){
   clearTimeout(actTimer); ACTPICK=null;
   if(v.trim().length<3){ const el=document.getElementById('actAc'); if(el){el.classList.remove('show');el.innerHTML='';} return; }
@@ -1214,13 +1537,14 @@ function actBiasCenter(){
   return s?{latitude:s.lat,longitude:s.lng}:null;
 }
 async function searchActPlaces(q){
-  try{
-    if(GMAPS_KEY){
+  ACTRES=[];
+  if(GMAPS_KEY){
+    try{
       const bias=actBiasCenter();
       const r=await fetch('https://places.googleapis.com/v1/places:searchText',{
         method:'POST',
         headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,
-          'X-Goog-FieldMask':'places.displayName,places.formattedAddress,places.location,places.rating,places.regularOpeningHours'},
+          'X-Goog-FieldMask':'places.displayName,places.formattedAddress,places.location,places.rating,places.photos,places.regularOpeningHours'},
         body:JSON.stringify(Object.assign({textQuery:q,maxResultCount:6,languageCode:'nl'},
           bias?{locationBias:{circle:{center:bias,radius:30000}}}:{}))
       });
@@ -1228,24 +1552,30 @@ async function searchActPlaces(q){
       ACTRES=(js.places||[]).map(p=>({
         name:p.displayName&&p.displayName.text, addr:p.formattedAddress,
         lat:p.location&&p.location.latitude, lng:p.location&&p.location.longitude,
-        rating:p.rating, periods:p.regularOpeningHours&&p.regularOpeningHours.periods
+        rating:p.rating, periods:p.regularOpeningHours&&p.regularOpeningHours.periods,
+        photo:(p.photos&&p.photos[0])?'https://places.googleapis.com/v1/'+p.photos[0].name+'/media?maxWidthPx=240&key='+GMAPS_KEY:null
       })).filter(p=>p.name);
-    } else {
+    }catch(e){ ACTRES=[]; }
+  }
+  if(!ACTRES.length){
+    /* terugval op OpenStreetMap (bv. als Places geblokkeerd is op dit domein) */
+    try{
       const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=nl&q='+encodeURIComponent(q));
       const js=await r.json();
       ACTRES=js.map(p=>({name:p.name||p.display_name.split(',')[0],addr:p.display_name,lat:+p.lat,lng:+p.lon}));
-    }
-    const el=document.getElementById('actAc'); if(!el) return;
-    if(!ACTRES.length){ el.classList.remove('show'); el.innerHTML=''; return; }
-    el.innerHTML=ACTRES.map((p,i)=>'<button onclick="pickActPlace('+i+')">'+esc(p.name)+
-      (p.rating?' <span style="color:var(--amber)">⭐ '+p.rating+'</span>':'')+
-      '<small>'+esc(p.addr||'')+'</small></button>').join('');
-    el.classList.add('show');
-  }catch(e){}
+    }catch(e){}
+  }
+  const el=document.getElementById('actAc'); if(!el) return;
+  if(!ACTRES.length){ el.classList.remove('show'); el.innerHTML=''; return; }
+  el.innerHTML=ACTRES.map((p,i)=>'<button onclick="pickActPlace('+i+')">'+esc(p.name)+
+    (p.rating?' <span style="color:var(--amber)">★ '+p.rating+'</span>':'')+
+    '<small>'+esc(p.addr||'')+'</small></button>').join('');
+  el.classList.add('show');
 }
 function pickActPlace(i){
   const p=ACTRES[i]; if(!p) return;
   ACTPICK={lat:p.lat,lng:p.lng};
+  ACTPHOTO=p.photo||null;
   document.getElementById('f_title').value=p.name;
   if(p.addr) document.getElementById('f_addr').value=p.addr;
   if(p.periods){
@@ -1259,21 +1589,21 @@ function pickActPlace(i){
 function sheetAct(id,day,pre){
   const a=id?cur.data.acts.find(x=>x.id===id):null;
   pre=pre||{};
-  ACTPICK=null; ACTRES=[];
+  ACTPICK=null; ACTRES=[]; ACTPHOTO=pre.photo||null;
   pickedType=a?(a.type||'act'):(pre.type||'act');
   const days=daysOf(cur);
   const selDay=a?a.day:day;
   const sel=days.map((d,i)=>'<option value="'+d+'" '+(selDay===d?'selected':'')+'>Dag '+(i+1)+' — '+fmtDagLang(d)+'</option>').join('');
   openSheet('<h2>'+(a?'Item bewerken':'Item toevoegen')+'</h2>'+
-    '<div class="field"><label>Type</label><div class="type-pick">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" onclick="pickType(\''+k+'\',this)">'+v[0]+' '+v[1]+'</button>').join('')+'</div></div>'+
+    '<div class="field"><label>Type</label><div class="type-pick">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" onclick="pickType(\''+k+'\',this)">'+ic(v[0])+' '+v[1]+'</button>').join('')+'</div></div>'+
     '<div class="field" style="position:relative"><label>Wat (zoek een plek of typ vrij)</label><input id="f_title" placeholder="Bijv. Neuschwanstein" autocomplete="off" oninput="actInput(this.value)" value="'+esc(a?a.title:(pre.title||''))+'"><div class="ac" id="actAc"></div></div>'+
     '<div class="row2"><div class="field"><label>Dag</label><select id="f_day">'+sel+'</select></div>'+
     '<div class="field"><label>Van</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'"></div>'+
     '<div class="field"><label>Tot</label><input id="f_aend" type="time" value="'+(a?(a.end||''):'')+'"></div></div>'+
-    '<div class="field"><label>🕐 Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
+    '<div class="field"><label>Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
     '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:(pre.addr||''))+'"></div>'+
     '<div class="field"><label>Notitie (optioneel)</label><textarea id="f_note" rows="2">'+esc(a?a.note:'')+'</textarea></div>'+
-    '<div class="btns">'+(a?'<button class="btn danger" onclick="delAct(\''+a.id+'\')">🗑</button>':'')+
+    '<div class="btns">'+(a?'<button class="btn danger" onclick="delAct(\''+a.id+'\')">'+ic('trash')+'</button>':'')+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveAct(\''+(a?a.id:'')+'\','+(pre.lat!=null?pre.lat:'null')+','+(pre.lng!=null?pre.lng:'null')+')">Bewaar</button></div>');
 }
@@ -1291,6 +1621,7 @@ async function saveAct(id,preLat,preLng){
     const g=await geocode(addr);
     if(g){ data.lat=g.lat; data.lng=g.lng; }
   } else if(old){ data.lat=old.lat; data.lng=old.lng; }
+  data.photo=ACTPHOTO||(old?old.photo:null);
   if(id) Object.assign(old, data);
   else cur.data.acts.push(Object.assign({id:uid()},data));
   await pushData(); closeSheet(); render();
@@ -1305,7 +1636,7 @@ function sheetHotel(id,stopId){
     const r=stopRanges(cur).find(rr=>rr.stop.id===stopId);
     if(r&&r.from){ cin=r.from; cout=r.to; }
   }
-  openSheet('<h2>'+(x?'Slaapplek bewerken':'Slaapplek toevoegen')+'</h2>'+
+  openSheet('<h2>'+ic('bed')+' '+(x?'Slaapplek bewerken':'Slaapplek toevoegen')+'</h2>'+
     '<div class="field"><label>Naam</label><input id="f_hname" placeholder="Bijv. Hotel Alpenblick" value="'+esc(x?x.name:'')+'"></div>'+
     '<div class="field"><label>Adres</label><input id="f_haddr" placeholder="Hauptstraße 12, München" value="'+esc(x?x.addr:'')+'"></div>'+
     '<div class="row2"><div class="field"><label>Check-in</label><input id="f_cin" type="date" value="'+(x?(x.cin||''):cin)+'"></div>'+
@@ -1313,7 +1644,7 @@ function sheetHotel(id,stopId){
     '<div class="row2"><div class="field"><label>Boekingsnr</label><input id="f_ref" value="'+esc(x?x.ref:'')+'"></div>'+
     '<div class="field"><label>Telefoon</label><input id="f_tel" type="tel" value="'+esc(x?x.tel:'')+'"></div></div>'+
     '<div class="field"><label>Notitie</label><textarea id="f_hnote" rows="2">'+esc(x?x.note:'')+'</textarea></div>'+
-    '<div class="btns">'+(x?'<button class="btn danger" onclick="delHotel(\''+x.id+'\')">🗑</button>':'')+
+    '<div class="btns">'+(x?'<button class="btn danger" onclick="delHotel(\''+x.id+'\')">'+ic('trash')+'</button>':'')+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveHotel(\''+(x?x.id:'')+'\',\''+(stopId||'')+'\')">Bewaar</button></div>');
 }
@@ -1341,12 +1672,12 @@ async function delHotel(id){ cur.data.hotels=cur.data.hotels.filter(y=>y.id!==id
 function sheetExp(id){
   const x=id?cur.data.exps.find(y=>y.id===id):null;
   pickedCat=x?(x.cat||'other'):'other';
-  openSheet('<h2>'+(x?'Uitgave bewerken':'Uitgave toevoegen')+'</h2>'+
+  openSheet('<h2>'+ic('wallet')+' '+(x?'Uitgave bewerken':'Uitgave toevoegen')+'</h2>'+
     '<div class="field"><label>Omschrijving</label><input id="f_edesc" placeholder="Bijv. diner München" value="'+esc(x?x.desc:'')+'"></div>'+
     '<div class="row2"><div class="field"><label>Bedrag (€)</label><input id="f_eamt" type="number" step="0.01" inputmode="decimal" value="'+(x?x.amount:'')+'"></div>'+
     '<div class="field"><label>Datum</label><input id="f_eday" type="date" value="'+(x?(x.day||''):'')+'"></div></div>'+
-    '<div class="field"><label>Categorie</label><div class="type-pick">'+Object.entries(EXP_CATS).map(([k,v])=>'<button class="'+(k===pickedCat?'on':'')+'" onclick="pickCat(\''+k+'\',this)">'+v[0]+' '+v[1]+'</button>').join('')+'</div></div>'+
-    '<div class="btns">'+(x?'<button class="btn danger" onclick="delExp(\''+x.id+'\')">🗑</button>':'')+
+    '<div class="field"><label>Categorie</label><div class="type-pick">'+Object.entries(EXP_CATS).map(([k,v])=>'<button class="'+(k===pickedCat?'on':'')+'" onclick="pickCat(\''+k+'\',this)">'+ic(v[0])+' '+v[1]+'</button>').join('')+'</div></div>'+
+    '<div class="btns">'+(x?'<button class="btn danger" onclick="delExp(\''+x.id+'\')">'+ic('trash')+'</button>':'')+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveExp(\''+(x?x.id:'')+'\')">Bewaar</button></div>');
 }
@@ -1368,7 +1699,6 @@ async function delExp(id){ cur.data.exps=cur.data.exps.filter(y=>y.id!==id); awa
   document.getElementById('version').textContent='v '+String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 })();
 async function boot(){
-  if(SB_KEY.indexOf('__')===0){ m.innerHTML='<div class="empty">Configuratiefout: geen API-key ingebouwd.</div>'; return; }
   sb=window.supabase.createClient(SB_URL,SB_KEY);
   const {data:{session}}=await sb.auth.getSession();
   if(session){ user=session.user; await afterLogin(); }
