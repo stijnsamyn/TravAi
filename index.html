@@ -1894,9 +1894,11 @@ async function delAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); awa
 /* plek-detail: foto's, beoordeling en openingsuren zoals in Google Maps */
 async function sheetPlace(actId){
   const a=cur.data.acts.find(x=>x.id===actId); if(!a) return;
-  openSheet('<h2>'+ic('photo')+' '+esc(a.title)+'</h2><div id="plc" style="min-height:80px">Laden…</div>'+
-    '<div class="btns">'+(canEdit(cur)?'<button class="btn ghost" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+' Bewerken</button>':'')+
-    (a.addr?'<a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" href="'+gmapsUrl(a.addr)+'">'+ic('navigation')+' Maps</a>':'')+
+  openSheet('<h2>'+ic('photo')+' <span style="flex:1;min-width:0">'+esc(a.title)+'</span>'+
+    (canEdit(cur)?'<button class="hbtn" title="Bewerken" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':'')+'</h2>'+
+    '<div id="plc" style="min-height:80px">Laden…</div>'+
+    '<div class="btns">'+
+    (a.addr?'<a class="btn ghost" style="display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" target="_blank" href="'+gmapsUrl(a.addr)+'">'+ic('navigation')+' Maps</a>':'')+
     '<button class="btn primary" onclick="closeSheet()">Sluiten</button></div>');
   const box=()=>document.getElementById('plc');
   if(!GMAPS_KEY){ if(box()) box().innerHTML='<p style="color:var(--muted);font-size:14px">Foto\'s en details vereisen de Google Places-koppeling.</p>'; return; }
