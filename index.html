@@ -128,6 +128,9 @@
   .chip.add{background:var(--green-soft);color:var(--green-ink)}
   .chip.sleep{background:var(--green-soft);color:var(--green-ink)}
   .chip.act{background:var(--amber-soft);color:#8a5a00}
+  .chip.ai{background:#f3f0ff;color:#5f3dc4}
+  .card.proposed{border:1.5px dashed #b197fc;background:#fdfcff}
+  .prop-tag{display:inline-block;font-size:11px;font-weight:700;background:#f3f0ff;color:#5f3dc4;border-radius:99px;padding:2px 8px;margin-top:4px}
   .stepper{display:flex;flex-direction:column;align-items:center;gap:2px;flex:none}
   .stepper .row{display:flex;align-items:center;gap:6px}
   .stepper button{
@@ -137,6 +140,9 @@
   .stepper .n{font-size:19px;font-weight:700;min-width:24px;text-align:center}
   .stepper .lbl{font-size:10px;color:var(--muted);font-weight:700}
   .stop .kebab{position:absolute;top:6px;right:8px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:5px 8px}
+  .stop.off{opacity:.55;border:1.5px dashed var(--border)}
+  .stop .num.draggable{cursor:grab;touch-action:none}
+  .stop .num.draggable:active{cursor:grabbing}
   /* openklapbare dagplanning per stop */
   .chev{width:100%;border:none;background:none;color:var(--muted);font-size:11.5px;font-weight:700;padding:8px 0 7px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
   .stopdays{margin-top:8px;border-top:1px dashed var(--border);padding:6px 2px 2px}
@@ -191,6 +197,7 @@
     display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;
     border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);font-family:'Quicksand',sans-serif;
   }
+  .apin.prop{background:#fdfcff;color:#9775fa;border:2px dashed #9775fa;opacity:.92}
   .pop-btn{
     display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;
     border-radius:50%;border:none;background:var(--green-soft);color:var(--green-ink);
@@ -250,6 +257,7 @@
   .sch-item{display:flex;align-items:center;gap:11px;padding:9px 14px 8px}
   .sch-item .sic{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:19px;flex:none}
   .sch-item .ttl{flex:1;min-width:0;text-align:left;background:none;border:none;font:inherit;font-weight:700;font-size:15px;color:var(--ink);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0}
+  .sch-item .sch-time{flex:none;font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
   .sch-item .grip{
     color:var(--muted);cursor:grab;touch-action:none;flex:none;
     padding:10px 12px;font-size:18px;
@@ -523,12 +531,15 @@ function norm(t){
 function myRole(t){ return t.owner===user.id ? 'owner' : (memberships[t.id]||'viewer'); }
 function canEdit(t){ return t && user && (t.owner===user.id || memberships[t.id]==='editor'); }
 function totNights(t){ if(!t.start_date||!t.end_date) return 0; return Math.round((new Date(t.end_date)-new Date(t.start_date))/86400000); }
-function plannedNights(t){ return t.data.stops.reduce((s,x)=>s+(x.nights||0),0); }
+function plannedNights(t){ return activeStops(t).reduce((s,x)=>s+(x.nights||0),0); }
+/* uitgeschakelde bestemmingen (s.off) tellen nergens mee: zo zie je meteen de impact op de reis */
+function activeStops(t){ return t.data.stops.filter(s=>!s.off); }
 function hotelNights(h){ if(!h.cin||!h.cout) return 0; return Math.max(0,Math.round((new Date(h.cout)-new Date(h.cin))/86400000)); }
+function hotName(h){ return (h&&(h.alias||h.name))||''; } /* alias krijgt overal voorrang */
 /* datumbereik per stop: aankomst = start + som nachten ervoor */
 function stopRanges(t){
   const out=[]; let cursor=t.start_date||null;
-  t.data.stops.forEach(s=>{
+  activeStops(t).forEach(s=>{
     const from=cursor;
     const to=(cursor&&s.nights>0)?addDays(cursor,s.nights):cursor;
     out.push({stop:s,from,to});
@@ -561,13 +572,13 @@ function sleepPointForDay(t,day){
   for(const r of rs){
     if(r.stop.nights>0&&rangeDays(r).includes(day)){
       const hs=hotelsForStop(t,r);
-      if(hs.length&&hs[0].lat!=null) return {lat:hs[0].lat,lng:hs[0].lng,name:hs[0].name,addr:hs[0].addr,hotel:hs[0],key:'h'+hs[0].id};
-      if(hs.length) return {name:hs[0].name,addr:hs[0].addr,hotel:hs[0],key:'h'+hs[0].id};
+      if(hs.length&&hs[0].lat!=null) return {lat:hs[0].lat,lng:hs[0].lng,name:hotName(hs[0]),addr:hs[0].addr,hotel:hs[0],key:'h'+hs[0].id};
+      if(hs.length) return {name:hotName(hs[0]),addr:hs[0].addr,hotel:hs[0],key:'h'+hs[0].id};
       if(r.stop.lat!=null) return {lat:r.stop.lat,lng:r.stop.lng,name:'centrum '+r.stop.name,placeholder:true,stop:r.stop,key:'s'+r.stop.id};
     }
   }
   const h=t.data.hotels.find(x=>x.cin&&x.cout&&x.cin<=day&&day<x.cout);
-  if(h&&h.lat!=null) return {lat:h.lat,lng:h.lng,name:h.name,addr:h.addr,hotel:h,key:'h'+h.id};
+  if(h&&h.lat!=null) return {lat:h.lat,lng:h.lng,name:hotName(h),addr:h.addr,hotel:h,key:'h'+h.id};
   return null;
 }
 function sortActs(arr){ return [...arr].sort((a,b)=>(a.time||a.opens||'99').localeCompare(b.time||b.opens||'99')||((a.seq||0)-(b.seq||0))); }
@@ -818,24 +829,37 @@ function renderRoute(){
     '<button class="'+(routeMode==='micro'?'on':'')+'" onclick="routeMode=\'micro\';render()">'+ic('timeline')+' Alles in volgorde</button></div>';
   if(routeMode==='micro') return h+renderSchema();
   if(!t.data.stops.length) h+='<div class="empty"><div class="big">'+ic('map-pin')+'</div>Voeg je eerste bestemming toe.</div>';
-  let num=0;
-  rs.forEach((r,i)=>{
-    const s=r.stop;
-    if(i>0){
+  const rmap={}; rs.forEach(r=>{ rmap[r.stop.id]=r; });
+  let num=0, ai=0, seen=false;
+  t.data.stops.forEach(s=>{
+    if(s.off){
+      h+='<div class="stop off" data-stop="'+s.id+'"><div class="srow">'+
+        '<div class="num" style="border-color:var(--muted);color:var(--muted)">'+ic('eye-off')+'</div>'+
+        '<div class="mid"><h3'+(edit?' style="cursor:pointer" onclick="sheetStop(\''+s.id+'\')"':'')+'>'+esc(s.name)+'</h3>'+
+        '<div class="dts">uitgeschakeld — telt niet mee in route en planning</div></div>'+
+        '</div>'+
+        (edit?'<button class="kebab" title="Weer meenemen in de reis" onclick="toggleStopOff(\''+s.id+'\')">'+ic('eye')+'</button>':'')+
+      '</div>';
+      return;
+    }
+    const r=rmap[s.id], i=ai++;
+    if(seen){
       h+='<div class="leg"><button class="legpill" id="leg-'+s.id+'" onclick="sheetLeg(\''+s.id+'\')">'+ic(MODES[s.mode||'car'][0])+' berekenen…</button></div>';
     }
+    seen=true;
     const hs=hotelsForStop(t,r), acts=actsForRange(t,r);
     const dts = r.from ? (s.isHome ? fmtKort(r.from)+' · Thuis — '+(i===0?'vertrekpunt':'eindpunt') : (s.nights>0 ? fmtKort(r.from)+' – '+fmtKort(r.to) : fmtKort(r.from)+' · Tussenstop')) : 'datums instellen';
     if(!s.isHome) num++;
-    h+='<div class="stop">'+
+    h+='<div class="stop" data-stop="'+s.id+'">'+
       '<div class="srow">'+
-      '<div class="num" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'">'+(s.isHome?ic('home'):num)+'</div>'+
-      '<div class="mid"><h3>'+esc(s.name)+'</h3><div class="dts">'+dts+'</div>'+
+      '<div class="num'+(edit?' draggable':'')+'" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'"'+(edit?' title="Sleep om de volgorde te wijzigen" onpointerdown="stopGripDown(event,\''+s.id+'\')"':'')+'>'+(s.isHome?ic('home'):num)+'</div>'+
+      '<div class="mid"><h3'+(edit?' style="cursor:pointer" title="Tik om te bewerken" onclick="sheetStop(\''+s.id+'\')"':'')+'>'+esc(s.name)+'</h3><div class="dts">'+dts+'</div>'+
       '<div class="chips">'+
-        (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">'+ic('bed')+' '+esc(x.name)+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
+        (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">'+ic('bed')+' '+esc(hotName(x))+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
           (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">'+ic('plus')+' slaapplek</button>':''))+
         (acts.length&&s.nights>0?'<button class="chip act" onclick="routeMode=\'micro\';render()">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
         (edit&&r.from&&s.nights>0?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
+        (edit&&r.from&&s.nights>0&&!s.isHome?'<button class="chip ai" id="ai-'+s.id+'" onclick="aiSuggest(\''+s.id+'\')">'+ic('sparkles')+' AI-voorstellen</button>':'')+
       '</div>'+
       '</div>'+
       (s.isHome?'':'<div class="stepper"><div class="row">'+
@@ -844,7 +868,7 @@ function renderRoute(){
         (edit?'<button onclick="chgNights(\''+s.id+'\',1)">+</button>':'')+
       '</div><span class="lbl">'+(s.nights===1?'nacht':'nachten')+'</span></div>')+
       '</div>'+
-      (edit?'<button class="kebab" onclick="sheetStop(\''+s.id+'\')">'+ic('pencil')+'</button>':'')+
+      (edit&&!s.isHome?'<button class="kebab" title="Tijdelijk uitzetten: zie meteen de impact op je reis" onclick="toggleStopOff(\''+s.id+'\')">'+ic('eye-off')+'</button>':'')+
     '</div>';
   });
   if(edit){
@@ -868,6 +892,61 @@ async function chgNights(id,d){
   s.nights=Math.max(0,(s.nights||0)+d);
   await pushData(); render();
 }
+/* bestemming tijdelijk uit de reis halen: route, datums en totalen rekenen meteen zonder deze stop */
+async function toggleStopOff(id){
+  const s=cur.data.stops.find(x=>x.id===id); if(!s) return;
+  if(s.off) delete s.off; else s.off=true;
+  LEGGEOM={}; /* routes opnieuw berekenen */
+  await pushData(); render();
+}
+/* bestemmingen verslepen (zelfde patroon als activiteiten, via het nummer-rondje) */
+let SDRAG=null;
+function stopGripDown(e,stopId){
+  e.preventDefault(); e.stopPropagation();
+  try{ e.target.setPointerCapture&&e.target.setPointerCapture(e.pointerId); }catch(err){}
+  const rows=[...document.querySelectorAll('.stop[data-stop]')].map(el=>({el,rect:el.getBoundingClientRect()}));
+  const src=cur.data.stops.find(x=>x.id===stopId);
+  const g=document.createElement('div'); g.className='drag-ghost'; g.textContent=src?src.name:'…';
+  document.body.appendChild(g);
+  const l=document.createElement('div'); l.className='drop-line'; document.body.appendChild(l);
+  SDRAG={stopId,rows,ghost:g,line:l,target:null,before:false};
+  document.body.style.userSelect='none';
+  stopDragMove(e);
+}
+document.addEventListener('pointermove',e=>{ if(SDRAG){ e.preventDefault(); stopDragMove(e); } },{passive:false});
+document.addEventListener('pointerup',()=>{ if(SDRAG) stopDragEnd(); });
+document.addEventListener('pointercancel',()=>{
+  if(SDRAG){ SDRAG.ghost.remove(); SDRAG.line.remove(); SDRAG=null; document.body.style.userSelect=''; }
+});
+function stopDragMove(e){
+  SDRAG.ghost.style.left=(e.clientX+12)+'px'; SDRAG.ghost.style.top=(e.clientY-14)+'px';
+  let best=null,bd=1e9;
+  SDRAG.rows.forEach(r=>{ const mid=(r.rect.top+r.rect.bottom)/2; const dl=Math.abs(e.clientY-mid); if(dl<bd){bd=dl;best=r;} });
+  SDRAG.target=best;
+  if(best){
+    SDRAG.before=e.clientY<(best.rect.top+best.rect.bottom)/2;
+    SDRAG.line.style.top=((SDRAG.before?best.rect.top:best.rect.bottom)+window.scrollY)+'px';
+    SDRAG.line.style.left=(best.rect.left+window.scrollX)+'px';
+    SDRAG.line.style.width=best.rect.width+'px';
+  }
+}
+async function stopDragEnd(){
+  const D=SDRAG; SDRAG=null;
+  D.ghost.remove(); D.line.remove();
+  document.body.style.userSelect='';
+  if(!D.target) return;
+  const a=cur.data.stops;
+  const from=a.findIndex(x=>x.id===D.stopId); if(from<0) return;
+  const targetId=D.target.el.dataset.stop;
+  if(targetId===D.stopId) return;
+  const [mv]=a.splice(from,1);
+  let to=a.findIndex(x=>x.id===targetId);
+  if(to<0){ a.splice(from,0,mv); return; }
+  if(!D.before) to+=1;
+  a.splice(to,0,mv);
+  LEGGEOM={};
+  await pushData(); render();
+}
 function gotoDay(day){ tab='diary'; diaryMode='micro'; dayView=day; render(); window.scrollTo(0,0); }
 function toggleStop(id){ EXPANDED[id]=!EXPANDED[id]; render(); }
 
@@ -878,7 +957,7 @@ function renderStopDays(t,r,edit){
   const hs=hotelsForStop(t,r);
   hs.forEach(x=>{
     const n=hotelNights(x);
-    h+='<div class="mini sleepbg">'+ic('bed')+'<button class="ttl" onclick="sheetHotel(\''+x.id+'\')">'+esc(x.name)+'</button>'+
+    h+='<div class="mini sleepbg">'+ic('bed')+'<button class="ttl" onclick="sheetHotel(\''+x.id+'\')">'+esc(hotName(x))+'</button>'+
        '<span class="sub">'+(x.cin?fmtKort(x.cin)+' → '+fmtKort(x.cout):'')+(n?' · '+n+(n===1?' nacht':' nachten'):'')+'</span></div>';
   });
   if(!hs.length&&edit&&s.nights>0)
@@ -973,6 +1052,8 @@ function sheetStop(id){
       (i>0?'<button class="btn ghost" onclick="moveStop(\''+id+'\',-1)">'+ic('arrow-up')+' Vroeger</button>':'')+
       (i<cur.data.stops.length-1?'<button class="btn ghost" onclick="moveStop(\''+id+'\',1)">'+ic('arrow-down')+' Later</button>':'')+
     '</div>'+
+    (!s.isHome?'<button class="btn ghost" style="width:100%;margin-bottom:4px" onclick="toggleStopOff(\''+id+'\');closeSheet()">'+(s.off?ic('eye')+' Weer meenemen in de reis':ic('eye-off')+' Tijdelijk uitzetten (zie de impact)')+'</button>':'')+
+    (!s.isHome&&s.lat!=null?'<button class="btn ghost" style="width:100%;margin-bottom:4px" onclick="stopToAct(\''+id+'\')">'+ic('target')+' Zet om naar activiteit</button>':'')+
     '<div class="btns"><button class="btn danger" onclick="delStop(\''+id+'\')">'+ic('trash')+'</button>'+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveStop(\''+id+'\')">Bewaar</button></div>');
@@ -1031,14 +1112,15 @@ function mountMap(){
       .addTo(MAP).bindPopup('<b>'+esc(s.name)+'</b><br>'+(r.from?fmtKort(r.from)+(s.isHome?' · thuis':(s.nights>0?' – '+fmtKort(r.to):' · tussenstop')):'')+editBtn);
     hotelsForStop(cur,r).forEach(hx=>{
       if(hx.lat!=null) L.marker([hx.lat,hx.lng],{icon:L.divIcon({className:'',html:'<div class="mpin bed">'+ic('bed')+'</div>',iconSize:[32,32],iconAnchor:[16,16]})})
-        .addTo(MAP).bindPopup('<b>'+esc(hx.name)+'</b>'+(hx.addr?'<br>'+esc(hx.addr):'')+
+        .addTo(MAP).bindPopup('<b>'+esc(hotName(hx))+'</b>'+(hx.addr?'<br>'+esc(hx.addr):'')+
           (canEdit(cur)?'<br><button class="maplink" style="border:none;cursor:pointer;margin-top:6px" onclick="sheetHotel(\''+hx.id+'\')">'+ic('pencil')+' Bewerken</button>':''));
     });
   });
-  cur.data.acts.forEach(a=>{
+  /* eigen activiteiten altijd bovenop AI-voorstellen tekenen */
+  [...cur.data.acts].sort((a,b)=>(a.proposed?0:1)-(b.proposed?0:1)).forEach(a=>{
     if(a.lat==null) return;
     const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
-    L.marker([a.lat,a.lng],{icon:L.divIcon({className:'',html:'<div class="apin">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]}),title:a.title})
+    L.marker([a.lat,a.lng],{zIndexOffset:a.proposed?-1000:0,icon:L.divIcon({className:'',html:'<div class="apin'+(a.proposed?' prop':'')+'">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]}),title:a.title})
       .addTo(MAP).on('click',()=>sheetPlace(a.id));
   });
   /* kaartpositie behouden bij her-renderen (bv. na activiteit toevoegen) */
@@ -1151,7 +1233,7 @@ function addCatHotel(i){
 function drawRoute(){
   if(!MAP||!ROUTELAYER) return;
   ROUTELAYER.clearLayers();
-  const ss=cur.data.stops;
+  const ss=activeStops(cur);
   for(let i=1;i<ss.length;i++){
     const a=ss[i-1], b=ss[i], mode=b.mode||'car';
     if(a.lat==null||b.lat==null) continue;
@@ -1282,12 +1364,13 @@ async function legInfo(a,b,mode,via){
 }
 function chargeStops(km,mode){
   if(mode!=='car'||SETTINGS.veh!=='ev') return 0;
-  return Math.max(0,Math.ceil(km/(+SETTINGS.range||330))-1);
+  /* op de snelweg haal je ± 85% van de opgegeven actieradius */
+  return Math.max(0,Math.ceil(km/((+SETTINGS.range||330)*0.85))-1);
 }
 async function computeLegs(){
-  const ss=cur?cur.data.stops:[];
+  const ss=cur?activeStops(cur):[];
   const rs=cur?stopRanges(cur):[];
-  let totKm=0, totMin=0, totCh=0, any=false;
+  let totKm=0, totDrive=0, totCharge=0, totCh=0, any=false;
   for(let i=1;i<ss.length;i++){
     const a=ss[i-1], b=ss[i], mode=b.mode||'car';
     const el=document.getElementById('leg-'+b.id);
@@ -1297,17 +1380,18 @@ async function computeLegs(){
     if(!cur) return;
     LEGGEOM[b.id]=c.geometry||null;
     const n=chargeStops(c.km,mode);
-    totKm+=c.km; totMin+=c.min+n*SETTINGS.charge; totCh+=n; any=true;
+    totKm+=c.km; totDrive+=c.min; totCharge+=n*SETTINGS.charge; totCh+=n; any=true;
     const el2=document.getElementById('leg-'+b.id);
     if(el2) el2.innerHTML=ic(MODES[mode][0])+' '+durTxt(c.min+n*SETTINGS.charge)+' · '+Math.round(c.km)+' km'+(wp.length?' · via '+wp.length:'')+(n?' <span class="zap">'+ic('bolt')+n+'</span>':'')+(c.est?' ≈':'');
     drawRoute();
   }
   const st=document.getElementById('tripstats');
   const nLegs=ss.filter((s,i)=>i>0&&s.lat!=null&&ss[i-1].lat!=null).length;
-  if(st&&any) st.innerHTML=ic('route')+' Hele reis: '+Math.round(totKm)+' km · '+durTxt(totMin)+' rijden, gespreid over '+nLegs+' etappes'+(totCh?' · '+ic('bolt')+totCh+' laadstop'+(totCh>1?'s':''):'');
+  if(st&&any) st.innerHTML=ic('route')+' Hele reis: '+Math.round(totKm)+' km · '+durTxt(totDrive)+' rijden, gespreid over '+nLegs+' etappes'+
+    (totCh?' · '+ic('bolt')+totCh+' laadstop'+(totCh>1?'s':'')+' (± '+durTxt(totCharge)+' laden)':'');
 }
 function sheetLeg(toId){
-  const ss=cur.data.stops, i=ss.findIndex(x=>x.id===toId);
+  const ss=activeStops(cur), i=ss.findIndex(x=>x.id===toId);
   if(i<1) return;
   const a=ss[i-1], b=ss[i], mode=b.mode||'car', edit=canEdit(cur);
   const rs=stopRanges(cur); const dep=rs[i].from?fmtDY(rs[i].from):'';
@@ -1328,7 +1412,7 @@ async function fillLegSheet(a,b){
   const box=document.getElementById('legModes');
   if(a.lat==null||b.lat==null){ if(box) box.innerHTML='<div class="mode-card"><span class="mi">'+ic('map-pin')+'</span><div class="mm"><b>Locatie onbekend</b></div></div>'; return; }
   const mode=b.mode||'car';
-  const rs=stopRanges(cur), bi=cur.data.stops.indexOf(b);
+  const rs=stopRanges(cur), bi=activeStops(cur).indexOf(b);
   const wp=(mode==='plane'||mode==='boat'||mode==='train')?[]:legWaypoints(a,b,rs[bi]&&rs[bi].from);
   const c=await legInfo(a,b,mode,wp);
   const lbl=mode==='car'?(SETTINGS.veh==='ev'?'Auto (elektrisch)':'Auto'):MODES[mode][1];
@@ -1419,12 +1503,15 @@ function buildActCards(acts,edit){
     const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
     if(prev) h+='<div class="trav" id="trav-'+a.id+'"></div>';
     const overlap=prev&&a.time&&((prev.end&&a.time<prev.end)||(!prev.end&&prev.time&&prev.time===a.time));
-    h+='<div class="card">'+(edit?
+    h+='<div class="card'+(a.proposed?' proposed':'')+'">'+(edit?
       '<button class="kebab" style="right:76px" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">'+ic('chevron-left')+'</button>'+
       '<button class="kebab" style="right:42px" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">'+ic('chevron-right')+'</button>'+
       '<button class="kebab" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':'')+
       '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+(a.end?'<div class="end">tot '+esc(a.end)+'</div>':'')+'</div><div class="body">'+
       '<h4>'+ic(icn)+' '+esc(a.title)+'</h4>'+
+      (a.proposed?'<span class="prop-tag">'+ic('sparkles')+' AI-voorstel</span>'+
+        (edit?' <button class="maplink" style="border:none;cursor:pointer;color:#2f9e44" onclick="acceptAct(\''+a.id+'\')">'+ic('check')+' Behouden</button>'+
+        '<button class="maplink" style="border:none;cursor:pointer;color:#e03131" onclick="rejectAct(\''+a.id+'\')">'+ic('x')+' Weg</button>':''):'')+
       (overlap?'<div class="overlap">Let op: overlapt met vorige activiteit</div>':'')+
       (a.time&&a.end&&hmToMin(a.end)>hmToMin(a.time)?'<span class="opens-tag" style="background:var(--bg);color:var(--muted)">'+ic('clock')+' '+durTxt(hmToMin(a.end)-hmToMin(a.time))+'</span> ':'')+
       (a.opens?'<span class="opens-tag">opent om '+esc(a.opens)+'</span>':'')+
@@ -1448,20 +1535,20 @@ function schemaPoints(d){
   const prevSleep=sleepPointForDay(t,addDays(d,-1));
   if(prevSleep){
     pts.push({kind:'hotel',label:prevSleep.name+(prevSleep.placeholder?' (nog geen hotel)':''),icon:'bed',lat:prevSleep.lat,lng:prevSleep.lng,hotel:prevSleep.hotel,phStop:prevSleep.stop,key:prevSleep.key,color:prevSleep.placeholder?'#a0aab4':SETTINGS.colHotel});
-  } else if(di===0&&t.data.stops.length){
-    const s=t.data.stops[0];
+  } else if(di===0&&activeStops(t).length){
+    const s=activeStops(t)[0];
     pts.push({kind:'start',label:s.name,icon:s.isHome?'home':'flag',lat:s.lat,lng:s.lng,stop:s,color:SETTINGS.colStart});
   } else {
     const r=stopRanges(t).find(rr=>rangeDays(rr).includes(d));
     if(r&&r.stop.lat!=null) pts.push({kind:'start',label:r.stop.name,icon:'map-pin',lat:r.stop.lat,lng:r.stop.lng,stop:r.stop,color:SETTINGS.colStart});
   }
-  sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:a.title,icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:SETTINGS.colAct}));
+  sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:a.title,icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:a.proposed?'#9775fa':SETTINGS.colAct}));
   const ton=sleepPointForDay(t,d);
   if(ton&&!(pts[0]&&pts[0].key===ton.key)){
     pts.push({kind:'hotel',label:ton.name+(ton.placeholder?' (nog geen hotel)':''),icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton.hotel,phStop:ton.stop,key:ton.key,color:ton.placeholder?'#a0aab4':SETTINGS.colHotel});
   } else if(ton&&pts.length>1){
     /* zelfde slaapplek als vertrek: terugrit expliciet meerekenen */
-    pts.push({kind:'hotel',label:'terug naar '+ton.name,icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton.hotel,phStop:ton.stop,key:ton.key,returnTrip:true,color:ton.placeholder?'#a0aab4':SETTINGS.colHotel});
+    pts.push({kind:'hotel',label:ton.name,icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton.hotel,phStop:ton.stop,key:ton.key,returnTrip:true,color:ton.placeholder?'#a0aab4':SETTINGS.colHotel});
   } else if(!ton){
     /* reisdag zonder hotel op de bestemming (bv. thuis of tussenstop als eindpunt): toon de aankomststop als eindpunt */
     const rsArr=stopRanges(t);
@@ -1476,13 +1563,58 @@ function schemaPoints(d){
 }
 /* vervoermiddel van een verplaatsing binnen de dag (opgeslagen op het bestemmingspunt) */
 function travModeOf(p){ return (p&&p.act&&p.act.travMode)||(p&&p.hotel&&p.hotel.travMode)||'car'; }
-const TRAV_ICON={car:'car',foot:'walk',bike:'bike'};
-async function cycleTrav(id,kind){
-  const o=kind==='act'?cur.data.acts.find(x=>x.id===id):cur.data.hotels.find(x=>x.id===id);
-  if(!o||!canEdit(cur)) return;
-  const order=['car','foot','bike'];
-  o.travMode=order[(order.indexOf(o.travMode||'car')+1)%order.length];
-  await pushData(); render();
+const TRAV_ICON={car:'car',foot:'walk',bike:'bike',taxi:'car',bus:'bus'};
+const TRAV_NAME={car:'auto',foot:'te voet',bike:'fiets',taxi:'taxi',bus:'bus'};
+const HOP_PROF={car:'car',taxi:'car',bus:'car',foot:'foot',bike:'bike'};
+async function hopInfo(A,B,tm){
+  const c=await osrm(A,B,HOP_PROF[tm]||'car');
+  const f=tm==='bus'?1.45:1; /* bus: reistijd ~45% langer dan auto */
+  return {km:c.km,min:c.min*f,est:c.est||tm==='bus'};
+}
+/* bewerkscherm van een verplaatsing binnen de dag */
+let HOPCTX=null;
+function sheetHop(d,idx){
+  const pts=schemaPoints(d); const A=pts[idx-1], B=pts[idx];
+  if(!A||!B) return;
+  HOPCTX={d,idx};
+  const tgt=B.act||B.hotel, tm=travModeOf(B), edit=canEdit(cur);
+  openSheet('<h2>'+ic('route')+' Verplaatsing</h2>'+
+    '<div class="leg-sub">'+esc(A.label)+' → '+esc(B.label)+' · '+fmtDagLang(d)+'</div>'+
+    '<div class="field"><label>Vervoermiddel</label><div class="type-pick">'+
+      [['car','car','Auto'],['foot','walk','Te voet'],['bike','bike','Fiets'],['taxi','car','Taxi'],['bus','bus','Bus']]
+        .map(x=>'<button class="'+(tm===x[0]?'on':'')+'" '+(edit&&tgt?'onclick="saveHopMode(\''+x[0]+'\')"':'disabled')+'>'+ic(x[1])+' '+x[2]+'</button>').join('')+
+    '</div></div>'+
+    '<div id="hopInfo" class="arrive-line">berekenen…</div>'+
+    '<div class="field" style="margin-top:12px"><label>Vertrektijd (leeg = automatisch)</label>'+
+    '<input id="f_hopdep" type="time" value="'+esc((tgt&&tgt.depTime)||'')+'" '+(edit&&tgt?'onchange="saveHopDep()"':'disabled')+'></div>'+
+    '<div class="btns">'+(A.lat!=null&&B.lat!=null?'<button class="btn ghost" onclick="navTo('+B.lat+','+B.lng+',\''+esc(B.label)+'\')">'+ic('navigation')+' Navigeer</button>':'')+
+    '<button class="btn primary" onclick="closeSheet()">Sluiten</button></div>');
+  fillHopInfo();
+}
+async function fillHopInfo(){
+  if(!HOPCTX) return;
+  const pts=schemaPoints(HOPCTX.d); const A=pts[HOPCTX.idx-1], B=pts[HOPCTX.idx];
+  const e=document.getElementById('hopInfo'); if(!e) return;
+  if(!A||!B||A.lat==null||B.lat==null){ e.textContent='Locatie onbekend'; return; }
+  const c=await hopInfo(A,B,travModeOf(B));
+  const e2=document.getElementById('hopInfo'); if(!e2) return;
+  e2.textContent=(Math.round(c.km*10)/10)+' km · '+durTxt(c.min)+(c.est?' (schatting)':'');
+}
+async function saveHopMode(mode){
+  if(!HOPCTX) return;
+  const pts=schemaPoints(HOPCTX.d); const B=pts[HOPCTX.idx]; const tgt=B&&(B.act||B.hotel);
+  if(!tgt) return;
+  tgt.travMode=mode;
+  await pushData();
+  sheetHop(HOPCTX.d,HOPCTX.idx);
+  render();
+}
+async function saveHopDep(){
+  if(!HOPCTX) return;
+  const pts=schemaPoints(HOPCTX.d); const B=pts[HOPCTX.idx]; const tgt=B&&(B.act||B.hotel);
+  if(!tgt) return;
+  tgt.depTime=document.getElementById('f_hopdep').value;
+  await pushData(); render(); fillHopInfo();
 }
 function renderSchema(){
   const t=cur, days=daysOf(t), edit=canEdit(t);
@@ -1496,7 +1628,7 @@ function renderSchema(){
     pts.forEach((p,idx)=>{
       if(idx>0){
         const tm=travModeOf(p);
-        const click=edit&&(p.act||p.hotel)?' style="cursor:pointer" title="Tik om te wisselen: auto → te voet → fiets" onclick="cycleTrav(\''+(p.act?p.act.id:p.hotel.id)+'\',\''+(p.act?'act':'hotel')+'\')"':'';
+        const click=' style="cursor:pointer" title="Tik voor vervoermiddel en vertrektijd" onclick="sheetHop(\''+d+'\','+idx+')"';
         h+='<div class="sch-trav" id="trs-'+d+'-'+idx+'"'+click+'><span class="tic">'+ic(TRAV_ICON[tm])+'</span><span class="t1">–:–</span><span class="mid">…</span><span class="t2">–:–</span></div>';
       }
       const ph=p.phStop&&!p.hotel; /* placeholder-slaapplek: onopvallend tonen */
@@ -1504,6 +1636,7 @@ function renderSchema(){
         '<span class="sic" style="color:'+p.color+'">'+ic(p.icon)+'</span>'+
         '<button class="ttl" '+(ph?'style="color:var(--muted);font-weight:500;font-style:italic;font-size:12.5px" ':'')+
         (p.act?'onclick="sheetAct(\''+p.act.id+'\')"':(p.hotel?'onclick="sheetHotel(\''+p.hotel.id+'\')"':(p.phStop?'onclick="sheetHotel(null,\''+p.phStop.id+'\')"':(p.stop?'onclick="sheetStop(\''+p.stop.id+'\')"':''))))+'>'+esc(p.label)+'</button>'+
+        (p.act&&(p.act.time||p.act.end)?'<span class="sch-time">'+esc(p.act.time||'')+(p.act.end?' – '+esc(p.act.end):'')+'</span>':'')+
         (edit&&p.act?'<span class="grip" onpointerdown="gripDown(event,\''+p.act.id+'\')">'+ic('grip-vertical')+'</span>':'')+
       '</div>';
     });
@@ -1517,19 +1650,21 @@ async function computeSchema(){
   for(const d of daysOf(cur)){
     const pts=schemaPoints(d);
     let cursor=null, hops=0;
-    const tot={car:[0,0],foot:[0,0],bike:[0,0]};
+    const tot={};
     for(let i=1;i<pts.length;i++){
       const A=pts[i-1], B=pts[i];
       const el=document.getElementById('trs-'+d+'-'+i);
       if(A.lat==null||B.lat==null){ if(el) el.querySelector('.mid').textContent='locatie onbekend'; continue; }
       const tm=travModeOf(B);
-      const c=await osrm(A,B,tm);
+      const c=await hopInfo(A,B,tm);
       if(!cur||!(tab==='route'&&routeMode==='micro')) return;
+      if(!tot[tm]) tot[tm]=[0,0];
       tot[tm][0]+=c.km; tot[tm][1]+=c.min; hops++;
       const tmin=Math.ceil(c.min);
       const bt=B.act?hmToMin(B.act.time):null;
-      let dep = cursor!=null ? cursor : (bt!=null ? bt-tmin : hmToMin('09:00'));
-      const arr = bt!=null ? bt : dep+tmin;
+      const fixed=(B.act&&B.act.depTime)?hmToMin(B.act.depTime):((B.hotel&&B.hotel.depTime)?hmToMin(B.hotel.depTime):null);
+      let dep = fixed!=null ? fixed : (cursor!=null ? cursor : (bt!=null ? bt-tmin : hmToMin('09:00')));
+      const arr = (fixed!=null||bt==null) ? dep+tmin : bt;
       if(B.act){
         const s=hmToMin(B.act.time), e=hmToMin(B.act.end);
         const visit=(s!=null&&e!=null&&e>s)?e-s:60;
@@ -1537,7 +1672,7 @@ async function computeSchema(){
       } else cursor=arr;
       const el2=document.getElementById('trs-'+d+'-'+i);
       if(el2){
-        const modeName={car:'auto',foot:'te voet',bike:'fiets'}[tm];
+        const modeName=TRAV_NAME[tm]||tm;
         const unreal=(tm==='foot'&&c.km>25)||(tm==='bike'&&c.km>120);
         el2.querySelector('.t1').textContent=minToHm(dep);
         el2.querySelector('.mid').innerHTML=modeName+' · '+(Math.round(c.km*10)/10)+' km / '+durTxt(c.min)+(c.est?' ≈':'')+
@@ -1701,7 +1836,8 @@ async function drawDayRoutes(pts){
   for(let i=1;i<pts.length;i++){
     const a=pts[i-1], b=pts[i];
     const tm=travModeOf(b);
-    const prof=tm!=='car'?tm:(havKm(a,b)<=8?'foot':'car'); /* korte afstand standaard te voet */
+    const base=HOP_PROF[tm]||'car';
+    const prof=(tm==='car'&&havKm(a,b)<=8)?'foot':base; /* korte afstand standaard te voet */
     const c=await osrm(a,b,prof);
     if(!DMAP) return;
     const col=prof==='foot'?'#1e9e74':prof==='bike'?'#2f9e44':'#e8467c';
@@ -1722,11 +1858,12 @@ function dayGotoToday(){
 async function computeDayTotal(){
   const el=document.getElementById('dv-tot'); if(!el||!cur||!dayView) return;
   const pts=dayPoints(dayView);
-  const tot={car:[0,0],foot:[0,0],bike:[0,0]};
+  const tot={};
   let hops=0;
   for(let i=1;i<pts.length;i++){
     const tm=travModeOf(pts[i]);
-    const c=await osrm(pts[i-1],pts[i],tm);
+    const c=await hopInfo(pts[i-1],pts[i],tm);
+    if(!tot[tm]) tot[tm]=[0,0];
     tot[tm][0]+=c.km; tot[tm][1]+=c.min; hops++;
   }
   const el2=document.getElementById('dv-tot');
@@ -1738,11 +1875,12 @@ async function computeDayTotal(){
 async function computeDayLeg(){
   const el=document.getElementById('dv-leg'); if(!el||!cur) return;
   const b=cur.data.stops.find(x=>x.id===el.dataset.to); if(!b) return;
-  const i=cur.data.stops.indexOf(b); if(i<1) return;
-  const a=cur.data.stops[i-1];
+  const ss=activeStops(cur);
+  const i=ss.indexOf(b); if(i<1) return;
+  const a=ss[i-1];
   if(a.lat==null||b.lat==null){ el.textContent='locatie onbekend'; return; }
   const mode=b.mode||'car';
-  const rs=stopRanges(cur), bi=cur.data.stops.indexOf(b);
+  const rs=stopRanges(cur), bi=activeStops(cur).indexOf(b);
   const wp=(mode==='plane'||mode==='boat'||mode==='train')?[]:legWaypoints(a,b,rs[bi]&&rs[bi].from);
   const c=await legInfo(a,b,mode,wp);
   const n=chargeStops(c.km,mode);
@@ -1851,6 +1989,23 @@ function renderCal(){
     }
     h+='</div></div>';
   });
+  /* agenda onder de kalender: activiteiten per dag */
+  const withActs=days.filter(d=>t.data.acts.some(a=>a.day===d));
+  if(withActs.length){
+    h+='<div class="section-title">Activiteiten per dag</div><div class="card sch">';
+    days.forEach((d,di)=>{
+      const acts=sortActs(t.data.acts.filter(a=>a.day===d));
+      if(!acts.length) return;
+      h+='<div class="sch-dayhead" style="cursor:pointer" onclick="gotoDay(\''+d+'\')"><span class="dn">'+(di+1)+'</span><b>'+fmtDagLang(d)+'</b></div>';
+      acts.forEach(a=>{
+        const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
+        h+='<div class="sch-item"><span class="sic" style="color:'+(a.proposed?'#9775fa':SETTINGS.colAct)+'">'+ic(icn)+'</span>'+
+          '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+esc(a.title)+'</button>'+
+          ((a.time||a.end)?'<span class="sch-time">'+esc(a.time||'')+(a.end?' – '+esc(a.end):'')+'</span>':'')+'</div>';
+      });
+    });
+    h+='</div>';
+  }
   return h;
 }
 
@@ -1907,6 +2062,65 @@ async function addPackSuggestions(){
   PACK_SUG.forEach(t=>{ if(!have.has(t.toLowerCase())) cur.data.pack.push({id:uid(),text:t,done:false}); });
   await pushData(); render();
 }
+
+/* ================= AI-REISAGENT ================= */
+/* Vraagt via de Supabase Edge Function (ai-suggest) voorstellen aan Claude en zet ze
+   als 'voorstel' in de agenda; de gebruiker behoudt of verwijdert ze daarna per stuk. */
+async function aiSuggest(stopId){
+  const s=cur.data.stops.find(x=>x.id===stopId); if(!s||!canEdit(cur)) return;
+  const r=stopRanges(cur).find(rr=>rr.stop.id===stopId);
+  if(!r||!r.from){ alert('Stel eerst de reisdatums in.'); return; }
+  const days=rangeDays(r);
+  const btn=document.getElementById('ai-'+stopId);
+  if(btn){ btn.disabled=true; btn.innerHTML=ic('sparkles')+' aan het denken…'; }
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const resp=await fetch(SB_URL+'/functions/v1/ai-suggest',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token,'apikey':SB_KEY},
+      body:JSON.stringify({
+        dest:s.name, region:s.display||'', days,
+        existing:cur.data.acts.filter(a=>days.includes(a.day)).map(a=>a.title)
+      })
+    });
+    const js=await resp.json();
+    if(!resp.ok||js.error) throw new Error(js.error||('HTTP '+resp.status));
+    const sug=js.suggestions||[];
+    if(!sug.length) throw new Error('Geen voorstellen ontvangen.');
+    /* verrijken via Google Places: locatie, adres, foto */
+    for(const g of sug){
+      const act={id:uid(),title:g.title,type:ACT_TYPES[g.type]?g.type:'act',
+        day:days.includes(g.day)?g.day:days[0],
+        time:g.time||'', end:(hmToMin(g.time)!=null&&g.duration_min)?minToHm(hmToMin(g.time)+g.duration_min):'',
+        note:g.note||'', addr:'', proposed:true};
+      if(GMAPS_KEY&&g.search_query){
+        try{
+          const pr=await fetch('https://places.googleapis.com/v1/places:searchText',{
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,
+              'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location,places.photos'},
+            body:JSON.stringify(Object.assign({textQuery:g.search_query,maxResultCount:1,languageCode:'nl'},
+              s.lat!=null?{locationBias:{circle:{center:{latitude:s.lat,longitude:s.lng},radius:30000}}}:{}))
+          });
+          const pj=await pr.json(); const p=pj.places&&pj.places[0];
+          if(p&&p.location){
+            act.lat=p.location.latitude; act.lng=p.location.longitude;
+            act.addr=p.formattedAddress||''; act.gpid=p.id;
+            act.photo=(p.photos&&p.photos[0])?'https://places.googleapis.com/v1/'+p.photos[0].name+'/media?maxWidthPx=240&key='+GMAPS_KEY:null;
+          }
+        }catch(e){}
+      }
+      cur.data.acts.push(act);
+    }
+    await pushData(); render();
+    alert(sug.length+' AI-voorstellen toegevoegd voor '+s.name+'.\nJe herkent ze aan de paarse stippellijn — behoud (✓) of verwijder (✕) ze per stuk in het Dagboek.');
+  }catch(e){
+    alert('AI-voorstellen mislukt: '+e.message);
+    render();
+  }
+}
+async function acceptAct(id){ const a=cur.data.acts.find(x=>x.id===id); if(a){ delete a.proposed; await pushData(); render(); } }
+async function rejectAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); await pushData(); render(); }
 
 /* ================= LEDEN & DELEN ================= */
 async function loadMembers(){
@@ -1985,7 +2199,7 @@ function exportIcs(){
     ics+='BEGIN:VEVENT\r\nUID:'+a.id+'@travai\r\nDTSTART:'+dt+'T'+st+'\r\nDTEND:'+dt+'T'+en+'\r\nSUMMARY:'+clean(a.title)+'\r\n'+(a.addr?'LOCATION:'+clean(a.addr)+'\r\n':'')+(a.note?'DESCRIPTION:'+clean(a.note)+'\r\n':'')+'END:VEVENT\r\n';
   });
   cur.data.hotels.filter(h=>h.cin).forEach(x=>{
-    ics+='BEGIN:VEVENT\r\nUID:'+x.id+'@travai\r\nDTSTART;VALUE=DATE:'+x.cin.replace(/-/g,'')+'\r\nDTEND;VALUE=DATE:'+(x.cout||x.cin).replace(/-/g,'')+'\r\nSUMMARY:Verblijf '+clean(x.name)+'\r\n'+(x.addr?'LOCATION:'+clean(x.addr)+'\r\n':'')+'END:VEVENT\r\n';
+    ics+='BEGIN:VEVENT\r\nUID:'+x.id+'@travai\r\nDTSTART;VALUE=DATE:'+x.cin.replace(/-/g,'')+'\r\nDTEND;VALUE=DATE:'+(x.cout||x.cin).replace(/-/g,'')+'\r\nSUMMARY:Verblijf '+clean(hotName(x))+'\r\n'+(x.addr?'LOCATION:'+clean(x.addr)+'\r\n':'')+'END:VEVENT\r\n';
   });
   ics+='END:VCALENDAR\r\n';
   const blob=new Blob([ics],{type:'text/calendar'});
@@ -2179,7 +2393,8 @@ function sheetAct(id,day,pre){
     '<div class="field"><label>Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
     '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:(pre.addr||''))+'"></div>'+
     '<div class="field"><label>Notitie (optioneel)</label><textarea id="f_note" rows="2">'+esc(a?a.note:'')+'</textarea></div>'+
-    (a&&canEdit(cur)?'<button class="btn ghost" style="width:100%;margin-bottom:4px" onclick="actToStop(\''+a.id+'\')">'+ic('route')+' Neem op in de route als tussenstop</button>':'')+
+    (a&&canEdit(cur)?'<button class="btn ghost" style="width:100%;margin-bottom:4px" onclick="actAsVia(\''+a.id+'\')">'+ic('route')+' Routepunt op de rit (blijft activiteit)</button>'+
+      '<button class="btn ghost" style="width:100%;margin-bottom:4px" onclick="actToStop(\''+a.id+'\')">'+ic('map-pin')+' Maak er een bestemming van</button>':'')+
     '<div class="btns">'+(a?'<button class="btn danger" onclick="delAct(\''+a.id+'\')">'+ic('trash')+'</button>':'')+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveAct(\''+(a?a.id:'')+'\','+(pre.lat!=null?pre.lat:'null')+','+(pre.lng!=null?pre.lng:'null')+')">Bewaar</button></div>');
@@ -2255,21 +2470,60 @@ async function sheetPlace(actId){
   }catch(e){ if(box()) box().innerHTML='<p style="color:var(--muted);font-size:14px">Details laden mislukt. Werkt dit domein met je Google-key?</p>'; }
 }
 
-/* activiteit als tussenstop in de route opnemen, op de plek met de kleinste omweg */
-async function actToStop(actId){
-  const a=cur.data.acts.find(x=>x.id===actId);
-  if(!a||a.lat==null){ alert('Deze activiteit heeft nog geen locatie. Kies een zoeksuggestie of vul een adres in en bewaar eerst.'); return; }
-  const ss=cur.data.stops;
-  if(ss.some(s=>s.lat===a.lat&&s.lng===a.lng)){ alert('Deze plek staat al op de route.'); return; }
+/* beste invoegpositie in de route (kleinste omweg) */
+function bestRoutePos(pt){
+  const ss=activeStops(cur);
   let best=ss.length, bestD=Infinity;
   for(let i=1;i<ss.length;i++){
     const p=ss[i-1], n=ss[i];
     if(p.lat==null||n.lat==null) continue;
-    const d=havKm(p,a)+havKm(a,n)-havKm(p,n);
+    const d=havKm(p,pt)+havKm(pt,n)-havKm(p,n);
     if(d<bestD){ bestD=d; best=i; }
   }
-  ss.splice(best,0,{id:uid(),name:a.title,lat:a.lat,lng:a.lng,nights:0});
-  await pushData(); closeSheet(); tab='route'; render();
+  return best; /* index in de actieve lijst = stop waarvóór ingevoegd wordt */
+}
+/* activiteit als routepunt op de rit: blijft een activiteit, de etappe rijdt er automatisch langs */
+async function actAsVia(actId){
+  const a=cur.data.acts.find(x=>x.id===actId);
+  if(!a||a.lat==null){ alert('Deze activiteit heeft nog geen locatie. Kies een zoeksuggestie of vul een adres in en bewaar eerst.'); return; }
+  const rs=stopRanges(cur);
+  const pos=bestRoutePos(a);
+  const travelDay=rs[pos]&&rs[pos].from;
+  if(!travelDay){ alert('Geen reisdag gevonden om deze plek op te nemen.'); return; }
+  a.day=travelDay;
+  LEGGEOM={};
+  await pushData(); closeSheet(); render();
+  alert('De rit naar '+rs[pos].stop.name+' loopt nu via "'+a.title+'" (gepland op de reisdag zelf).');
+}
+/* activiteit omzetten naar een echte bestemming; kan altijd weer terug */
+async function actToStop(actId){
+  const ai=cur.data.acts.findIndex(x=>x.id===actId);
+  const a=cur.data.acts[ai];
+  if(!a||a.lat==null){ alert('Deze activiteit heeft nog geen locatie. Kies een zoeksuggestie of vul een adres in en bewaar eerst.'); return; }
+  if(cur.data.stops.some(s=>s.lat===a.lat&&s.lng===a.lng)){ alert('Deze plek staat al op de route.'); return; }
+  const pos=bestRoutePos(a);
+  /* positie in de actieve lijst vertalen naar de volledige lijst */
+  const act=activeStops(cur);
+  const anchor=act[pos]; /* stop waarvóór we invoegen; undefined = achteraan */
+  const fullPos=anchor?cur.data.stops.indexOf(anchor):cur.data.stops.length;
+  cur.data.acts.splice(ai,1);
+  cur.data.stops.splice(fullPos,0,{id:uid(),name:a.title,lat:a.lat,lng:a.lng,nights:0,fromAct:a});
+  LEGGEOM={};
+  await pushData(); closeSheet(); tab='route'; routeMode='macro'; render();
+}
+/* bestemming die uit een activiteit ontstond weer terugzetten */
+async function stopToAct(stopId){
+  const si=cur.data.stops.findIndex(x=>x.id===stopId);
+  const s=cur.data.stops[si]; if(!s) return;
+  const a=s.fromAct||{id:uid(),title:s.name,type:'act',day:null,lat:s.lat,lng:s.lng};
+  if(!a.day||!daysOf(cur).includes(a.day)){
+    const b=bestDayForPlace(s.lat,s.lng);
+    a.day=b||daysOf(cur)[0]||null;
+  }
+  cur.data.stops.splice(si,1);
+  cur.data.acts.push(a);
+  LEGGEOM={};
+  await pushData(); closeSheet(); render();
 }
 
 /* --- slaapplek --- */
@@ -2335,6 +2589,7 @@ function sheetHotel(id,stopId){
   }
   openSheet('<h2>'+ic('bed')+' '+(x?'Slaapplek bewerken':'Slaapplek toevoegen')+'</h2>'+
     '<div class="field" style="position:relative"><label>Naam (zoek hotel via Google of typ vrij)</label><input id="f_hname" autocomplete="off" oninput="hotInput(this.value)" placeholder="Bijv. Hotel Alpenblick" value="'+esc(x?x.name:'')+'"><div class="ac" id="hotAc"></div></div>'+
+    '<div class="field"><label>Alias (eigen naam, krijgt overal voorrang)</label><input id="f_halias" placeholder="Bijv. ons hotel in München" value="'+esc(x?(x.alias||''):'')+'"></div>'+
     '<div class="field"><label>Adres</label><input id="f_haddr" placeholder="Hauptstraße 12, München" value="'+esc(x?x.addr:'')+'"></div>'+
     '<div class="row2"><div class="field"><label>Check-in</label><input id="f_cin" type="date" value="'+(x?(x.cin||''):cin)+'"></div>'+
     '<div class="field"><label>Check-out</label><input id="f_cout" type="date" value="'+(x?(x.cout||''):cout)+'"></div></div>'+
@@ -2350,6 +2605,7 @@ async function saveHotel(id,stopId){
   if(!name){ alert('Geef een naam.'); return; }
   const addr=document.getElementById('f_haddr').value.trim();
   const data={ name, addr,
+    alias:document.getElementById('f_halias').value.trim(),
     cin:document.getElementById('f_cin').value, cout:document.getElementById('f_cout').value,
     ref:document.getElementById('f_ref').value.trim(), tel:document.getElementById('f_tel').value.trim(),
     note:document.getElementById('f_hnote').value.trim() };
