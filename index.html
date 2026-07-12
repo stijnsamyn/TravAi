@@ -1459,6 +1459,9 @@ function schemaPoints(d){
   const ton=sleepPointForDay(t,d);
   if(ton&&!(pts[0]&&pts[0].key===ton.key)){
     pts.push({kind:'hotel',label:ton.name+(ton.placeholder?' (nog geen hotel)':''),icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton.hotel,phStop:ton.stop,key:ton.key,color:ton.placeholder?'#a0aab4':SETTINGS.colHotel});
+  } else if(ton&&pts.length>1){
+    /* zelfde slaapplek als vertrek: terugrit expliciet meerekenen */
+    pts.push({kind:'hotel',label:'terug naar '+ton.name,icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton.hotel,phStop:ton.stop,key:ton.key,returnTrip:true,color:ton.placeholder?'#a0aab4':SETTINGS.colHotel});
   } else if(!ton){
     /* reisdag zonder hotel op de bestemming (bv. thuis of tussenstop als eindpunt): toon de aankomststop als eindpunt */
     const rsArr=stopRanges(t);
@@ -1676,6 +1679,7 @@ function mountDayMap(d){
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(DMAP);
   let n=0;
   pts.forEach(p=>{
+    if(p.returnTrip) return; /* zelfde plek als vertrek: geen dubbele marker */
     let html;
     if(p.kind==='hotel') html='<div class="mpin bed">'+ic('bed')+'</div>';
     else if(p.kind==='start'||p.kind==='end') html='<div class="mpin" style="color:'+SETTINGS.colStart+';font-size:16px">'+ic(p.icon)+'</div>';
