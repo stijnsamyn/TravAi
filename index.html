@@ -177,11 +177,11 @@
     box-shadow:0 2px 7px rgba(0,0,0,.28);font-weight:700;font-size:14px;font-family:'Quicksand',sans-serif;
     display:flex;align-items:center;justify-content:center;
   }
-  .mpin.bed{background:var(--green);color:#fff;font-size:16px}
+  .mpin.bed{background:#f59f00;color:#fff;font-size:16px}
   .apin{
-    width:28px;height:28px;border-radius:9px;background:#f5a623;color:#fff;
-    display:flex;align-items:center;justify-content:center;font-size:15px;
-    border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);
+    width:28px;height:28px;border-radius:9px;background:#4263eb;color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;
+    border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);font-family:'Quicksand',sans-serif;
   }
   .pop-btn{
     display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;
@@ -347,6 +347,8 @@
   .type-pick button{font-size:13px;font-weight:700;background:var(--bg);border:2px solid transparent;border-radius:99px;padding:8px 13px;cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
   .type-pick button .ti{font-size:15px}
   .type-pick button.on{border-color:var(--green);background:var(--green-soft);color:var(--green-ink)}
+  .type-pick.iconpick button{width:46px;height:46px;padding:0;border-radius:12px;justify-content:center}
+  .type-pick.iconpick button .ti{font-size:21px}
   /* leg sheet */
   .leg-title{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:700;margin-bottom:4px}
   .leg-title .lnk{color:var(--pink);font-size:13px}
@@ -736,7 +738,7 @@ function renderRoute(){
     }
     const hs=hotelsForStop(t,r), acts=actsForRange(t,r);
     const dts = r.from ? (s.isHome ? fmtKort(r.from)+' · Thuis — '+(i===0?'vertrekpunt':'eindpunt') : (s.nights>0 ? fmtKort(r.from)+' – '+fmtKort(r.to) : fmtKort(r.from)+' · Tussenstop')) : 'datums instellen';
-    const open=!!EXPANDED[s.id];
+    const open=!!EXPANDED[s.id]&&s.nights>0; /* dagplanning hoort bij de stop waar je slaapt */
     if(!s.isHome) num++;
     h+='<div class="stop">'+
       '<div class="srow">'+
@@ -745,8 +747,8 @@ function renderRoute(){
       (open?'':'<div class="chips">'+
         (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">'+ic('bed')+' '+esc(x.name)+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
           (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">'+ic('plus')+' slaapplek</button>':''))+
-        (acts.length?'<button class="chip act" onclick="toggleStop(\''+s.id+'\')">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
-        (edit&&r.from?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
+        (acts.length&&s.nights>0?'<button class="chip act" onclick="toggleStop(\''+s.id+'\')">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
+        (edit&&r.from&&s.nights>0?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
       '</div>')+
       '</div>'+
       (s.isHome?'':'<div class="stepper"><div class="row">'+
@@ -757,7 +759,7 @@ function renderRoute(){
       '</div>'+
       (edit?'<button class="kebab" onclick="sheetStop(\''+s.id+'\')">'+ic('pencil')+'</button>':'')+
       (open?renderStopDays(t,r,edit):'')+
-      (r.from?'<button class="chev" onclick="toggleStop(\''+s.id+'\')">'+ic(open?'chevron-up':'chevron-down')+' '+(open?'Dagplanning verbergen':'Dagplanning tonen')+'</button>':'')+
+      (r.from&&s.nights>0?'<button class="chev" onclick="toggleStop(\''+s.id+'\')">'+ic(open?'chevron-up':'chevron-down')+' '+(open?'Dagplanning verbergen':'Dagplanning tonen')+'</button>':'')+
     '</div>';
   });
   if(edit){
@@ -1259,7 +1261,7 @@ function schemaPoints(d){
   const pts=[];
   const prevHotel=hotelForDay(t,addDays(d,-1));
   if(prevHotel){
-    pts.push({kind:'hotel',label:prevHotel.name,icon:'bed',lat:prevHotel.lat,lng:prevHotel.lng,hotel:prevHotel,color:'#f5a623'});
+    pts.push({kind:'hotel',label:prevHotel.name,icon:'bed',lat:prevHotel.lat,lng:prevHotel.lng,hotel:prevHotel,color:'#f59f00'});
   } else if(di===0&&t.data.stops.length){
     const s=t.data.stops[0];
     pts.push({kind:'start',label:s.name,icon:s.isHome?'home':'flag',lat:s.lat,lng:s.lng,color:'#2fbe8f'});
@@ -1267,9 +1269,9 @@ function schemaPoints(d){
     const r=stopRanges(t).find(rr=>rangeDays(rr).includes(d));
     if(r&&r.stop.lat!=null) pts.push({kind:'start',label:r.stop.name,icon:'map-pin',lat:r.stop.lat,lng:r.stop.lng,color:'#2fbe8f'});
   }
-  sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:a.title,icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:'#5c9ce6'}));
+  sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:a.title,icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:'#4263eb'}));
   const ton=hotelForDay(t,d);
-  if(ton&&!(pts[0]&&pts[0].hotel===ton)) pts.push({kind:'hotel',label:ton.name,icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton,color:'#f5a623'});
+  if(ton&&!(pts[0]&&pts[0].hotel===ton)) pts.push({kind:'hotel',label:ton.name,icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton,color:'#f59f00'});
   return pts;
 }
 function renderSchema(){
@@ -1438,7 +1440,7 @@ function mountDayMap(d){
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(DMAP);
   let n=0;
   pts.forEach(p=>{
-    const html=p.kind==='bed'?'<div class="mpin bed">'+ic('bed')+'</div>':'<div class="mpin" style="color:#b7791f">'+(++n)+'</div>';
+    const html=p.kind==='bed'?'<div class="mpin bed">'+ic('bed')+'</div>':'<div class="apin" style="width:30px;height:30px">'+(++n)+'</div>';
     const mk=L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html,iconSize:[32,32],iconAnchor:[16,16]}),title:p.label}).addTo(DMAP);
     if(p.act) mk.on('click',()=>sheetPlace(p.act.id));
     else mk.bindPopup('<b>'+esc(p.label)+'</b>'+(p.hotel&&canEdit(cur)?'<br><button class="pop-btn" title="Bewerken" onclick="sheetHotel(\''+p.hotel.id+'\')">'+ic('pencil')+'</button>':''));
@@ -1882,7 +1884,7 @@ function sheetAct(id,day,pre){
   const selDay=a?a.day:day;
   const sel=days.map((d,i)=>'<option value="'+d+'" '+(selDay===d?'selected':'')+'>Dag '+(i+1)+' — '+fmtDagLang(d)+'</option>').join('');
   openSheet('<h2>'+(a?'Item bewerken':'Item toevoegen')+'</h2>'+
-    '<div class="field"><label>Type</label><div class="type-pick" id="actTypes">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" data-k="'+k+'" onclick="pickType(\''+k+'\',this)">'+ic(v[0])+' '+v[1]+'</button>').join('')+'</div></div>'+
+    '<div class="field"><label>Type</label><div class="type-pick iconpick" id="actTypes">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" data-k="'+k+'" title="'+v[1]+'" onclick="pickType(\''+k+'\',this)">'+ic(v[0])+'</button>').join('')+'</div></div>'+
     '<div class="field" style="position:relative"><label>Wat (zoek een plek of typ vrij)</label><input id="f_title" placeholder="Bijv. Neuschwanstein" autocomplete="off" oninput="actInput(this.value)" value="'+esc(a?a.title:(pre.title||''))+'"><div class="ac" id="actAc"></div></div>'+
     '<div class="row2"><div class="field"><label>Dag</label><select id="f_day">'+sel+'</select></div>'+
     '<div class="field"><label>Van</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'"></div>'+
