@@ -655,7 +655,7 @@ function renderStopDays(t,r,edit){
     if(!acts.length) h+='<div class="mini-none">nog niets gepland</div>';
     acts.forEach(a=>{
       const ic=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
-      h+='<div class="mini"><span class="t">'+(a.time?esc(a.time):'—')+'</span>'+
+      h+='<div class="mini"><span class="t">'+(a.time?esc(a.time):'—')+(a.end?'<br><span style="color:var(--muted);font-size:10px">'+esc(a.end)+'</span>':'')+'</span>'+
          '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+ic+' '+esc(a.title)+'</button>'+
          (edit?'<button class="mv" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">‹</button><button class="mv" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">›</button>':'')+
          '</div>';
@@ -948,7 +948,7 @@ function renderDays(){
         '<button class="kebab" style="right:76px" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">‹</button>'+
         '<button class="kebab" style="right:42px" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">›</button>'+
         '<button class="kebab" onclick="sheetAct(\''+a.id+'\')">✎</button>':'')+
-        '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+'</div><div class="body">'+
+        '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+(a.end?'<div style="color:var(--muted);font-size:11px;font-weight:600">tot '+esc(a.end)+'</div>':'')+'</div><div class="body">'+
         '<h4>'+ic+' '+esc(a.title)+'</h4>'+
         (a.opens?'<span class="opens-tag">🕐 opent om '+esc(a.opens)+'</span>':'')+
         (a.addr?'<div class="addr">📍 '+esc(a.addr)+'</div><a class="maplink" target="_blank" href="'+mapsUrl(a.addr)+'">🗺️ Kaarten</a><a class="maplink" target="_blank" href="'+gmapsUrl(a.addr)+'">🌐 Google Maps</a>':'')+
@@ -1268,7 +1268,8 @@ function sheetAct(id,day,pre){
     '<div class="field"><label>Type</label><div class="type-pick">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" onclick="pickType(\''+k+'\',this)">'+v[0]+' '+v[1]+'</button>').join('')+'</div></div>'+
     '<div class="field" style="position:relative"><label>Wat (zoek een plek of typ vrij)</label><input id="f_title" placeholder="Bijv. Neuschwanstein" autocomplete="off" oninput="actInput(this.value)" value="'+esc(a?a.title:(pre.title||''))+'"><div class="ac" id="actAc"></div></div>'+
     '<div class="row2"><div class="field"><label>Dag</label><select id="f_day">'+sel+'</select></div>'+
-    '<div class="field"><label>Tijd (start)</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'"></div></div>'+
+    '<div class="field"><label>Van</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'"></div>'+
+    '<div class="field"><label>Tot</label><input id="f_aend" type="time" value="'+(a?(a.end||''):'')+'"></div></div>'+
     '<div class="field"><label>🕐 Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
     '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:(pre.addr||''))+'"></div>'+
     '<div class="field"><label>Notitie (optioneel)</label><textarea id="f_note" rows="2">'+esc(a?a.note:'')+'</textarea></div>'+
@@ -1281,6 +1282,7 @@ async function saveAct(id,preLat,preLng){
   if(!title){ alert('Geef een omschrijving.'); return; }
   const addr=document.getElementById('f_addr').value.trim();
   const data={ title, type:pickedType, day:document.getElementById('f_day').value, time:document.getElementById('f_time').value,
+    end:document.getElementById('f_aend').value,
     opens:document.getElementById('f_opens').value, addr, note:document.getElementById('f_note').value.trim() };
   const old=id?cur.data.acts.find(x=>x.id===id):null;
   if(ACTPICK&&ACTPICK.lat!=null){ data.lat=ACTPICK.lat; data.lng=ACTPICK.lng; }
