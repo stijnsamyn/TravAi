@@ -920,7 +920,6 @@ function renderRoute(){
         (edit?'<button onclick="chgNights(\''+s.id+'\',1)">+</button>':'')+
       '</div><span class="lbl">'+(s.nights===1?'nacht':'nachten')+'</span></div>')+
       '</div>'+
-      (edit&&!s.isHome?'<button class="kebab" title="Tijdelijk uitzetten: zie meteen de impact op je reis" onclick="toggleStopOff(\''+s.id+'\')">'+ic('eye-off')+'</button>':'')+
     '</div>';
   });
   if(edit){
