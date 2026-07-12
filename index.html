@@ -413,6 +413,7 @@ let tab='route';           // route | today | days | cal | budget | lists
 let dayView=null;          // datum die de Vandaag-tab toont
 let listMode='todos';
 let daysMode='cards';      // cards | schema (reisschema-weergave)
+let routeMode='macro';     // macro (alleen bestemmingen) | micro (alles in volgorde)
 let mapOn=true;
 let MAP=null, ROUTELAYER=null;
 let SCROLL_TODAY=false;
@@ -424,7 +425,7 @@ const MNDL=['januari','februari','maart','april','mei','juni','juli','augustus',
 const DAG=['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
 const DAGK=['zo','ma','di','wo','do','vr','za'];
 function ic(n){ return '<i class="ti ti-'+n+'"></i>'; }
-const ACT_TYPES={act:['target','Activiteit'],sight:['star','Bezienswaardigheid'],museum:['building-bank','Museum'],castle:['building-castle','Kasteel/Fort'],nature:['trees','Natuur'],sport:['run','Sport'],shop:['shopping-bag','Winkelen'],food:['tools-kitchen-2','Eten & drinken'],transport:['train','Vervoer'],flight:['plane','Vlucht']};
+const ACT_TYPES={act:['target','Activiteit'],sight:['star','Bezienswaardigheid'],museum:['building-bank','Museum'],castle:['building-castle','Kasteel/Fort'],nature:['trees','Natuur'],sport:['run','Sport'],shop:['shopping-bag','Winkelen'],food:['tools-kitchen-2','Eten & drinken'],free:['beach','Vrije tijd'],transport:['train','Vervoer'],flight:['plane','Vlucht']};
 /* Google/OSM-plaatstype naar activiteitstype */
 const GTYPE_MAP={museum:'museum',art_gallery:'museum',gallery:'museum',historical_landmark:'castle',castle:'castle',ruins:'castle',church:'sight',tourist_attraction:'sight',attraction:'sight',viewpoint:'sight',monument:'sight',memorial:'sight',park:'nature',zoo:'nature',national_park:'nature',garden:'nature',hiking_area:'nature',stadium:'sport',gym:'sport',sports_complex:'sport',swimming_pool:'sport',shopping_mall:'shop',clothing_store:'shop',department_store:'shop',supermarket:'shop',grocery_store:'shop',market:'shop',restaurant:'food',cafe:'food',bar:'food',bakery:'food',fast_food_restaurant:'food',ice_cream_shop:'food',electric_vehicle_charging_station:'transport',gas_station:'transport',parking:'transport',train_station:'transport',airport:'flight',amusement_park:'act',theme_park:'act'};
 const EXP_CATS={stay:['bed','Verblijf'],food:['tools-kitchen-2','Eten'],transport:['car','Vervoer'],fun:['ticket','Activiteiten'],shop:['shopping-bag','Shopping'],other:['package','Overig']};
@@ -584,6 +585,7 @@ function render(){
         '<div class="listpane">'+renderRoute()+'</div></div>';
       if(mapOn) mountMap();
       computeLegs();
+      if(routeMode==='micro') computeSchema();
     } else {
       m.innerHTML=note+'<div class="plainwrap">'+
         (tab==='today'?renderToday():tab==='days'?renderDays():tab==='cal'?renderCal():tab==='budget'?renderBudget():renderLists())+'</div>';
@@ -728,7 +730,10 @@ function renderRoute(){
   const t=cur, edit=canEdit(t), rs=stopRanges(t);
   const tot=totNights(t), pl=plannedNights(t), pct=tot?Math.min(100,Math.round(pl/tot*100)):0;
   let h='<div class="nights-head"><div class="bigdonut" style="--p:'+pct+'%" data-t="'+pl+'/'+tot+'"></div><div class="lbl">nachten gepland</div></div>'+
-    '<div class="tripstats" id="tripstats"></div>';
+    '<div class="tripstats" id="tripstats"></div>'+
+    '<div class="seg"><button class="'+(routeMode==='macro'?'on':'')+'" onclick="routeMode=\'macro\';render()">'+ic('map-pin')+' Bestemmingen</button>'+
+    '<button class="'+(routeMode==='micro'?'on':'')+'" onclick="routeMode=\'micro\';render()">'+ic('timeline')+' Alles in volgorde</button></div>';
+  if(routeMode==='micro') return h+renderSchema();
   if(!t.data.stops.length) h+='<div class="empty"><div class="big">'+ic('map-pin')+'</div>Voeg je eerste bestemming toe.</div>';
   let num=0;
   rs.forEach((r,i)=>{
@@ -738,18 +743,17 @@ function renderRoute(){
     }
     const hs=hotelsForStop(t,r), acts=actsForRange(t,r);
     const dts = r.from ? (s.isHome ? fmtKort(r.from)+' · Thuis — '+(i===0?'vertrekpunt':'eindpunt') : (s.nights>0 ? fmtKort(r.from)+' – '+fmtKort(r.to) : fmtKort(r.from)+' · Tussenstop')) : 'datums instellen';
-    const open=!!EXPANDED[s.id]&&s.nights>0; /* dagplanning hoort bij de stop waar je slaapt */
     if(!s.isHome) num++;
     h+='<div class="stop">'+
       '<div class="srow">'+
       '<div class="num" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'">'+(s.isHome?ic('home'):num)+'</div>'+
       '<div class="mid"><h3>'+esc(s.name)+'</h3><div class="dts">'+dts+'</div>'+
-      (open?'':'<div class="chips">'+
+      '<div class="chips">'+
         (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">'+ic('bed')+' '+esc(x.name)+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
           (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">'+ic('plus')+' slaapplek</button>':''))+
-        (acts.length&&s.nights>0?'<button class="chip act" onclick="toggleStop(\''+s.id+'\')">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
+        (acts.length&&s.nights>0?'<button class="chip act" onclick="routeMode=\'micro\';render()">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
         (edit&&r.from&&s.nights>0?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
-      '</div>')+
+      '</div>'+
       '</div>'+
       (s.isHome?'':'<div class="stepper"><div class="row">'+
         (edit?'<button onclick="chgNights(\''+s.id+'\',-1)">−</button>':'')+
@@ -758,8 +762,6 @@ function renderRoute(){
       '</div><span class="lbl">'+(s.nights===1?'nacht':'nachten')+'</span></div>')+
       '</div>'+
       (edit?'<button class="kebab" onclick="sheetStop(\''+s.id+'\')">'+ic('pencil')+'</button>':'')+
-      (open?renderStopDays(t,r,edit):'')+
-      (r.from&&s.nights>0?'<button class="chev" onclick="toggleStop(\''+s.id+'\')">'+ic(open?'chevron-up':'chevron-down')+' '+(open?'Dagplanning verbergen':'Dagplanning tonen')+'</button>':'')+
     '</div>';
   });
   if(edit){
@@ -1305,7 +1307,7 @@ async function computeSchema(){
       const el=document.getElementById('trs-'+d+'-'+i);
       if(A.lat==null||B.lat==null){ if(el) el.querySelector('.mid').textContent='locatie onbekend'; continue; }
       const c=await osrm(A,B,'car');
-      if(!cur||tab!=='days'||daysMode!=='schema') return;
+      if(!cur||!((tab==='days'&&daysMode==='schema')||(tab==='route'&&routeMode==='micro'))) return;
       const tmin=Math.ceil(c.min);
       const bt=B.act?hmToMin(B.act.time):null;
       let dep = cursor!=null ? cursor : (bt!=null ? bt-tmin : hmToMin('09:00'));
@@ -1987,15 +1989,68 @@ async function actToStop(actId){
 }
 
 /* --- slaapplek --- */
+let hotTimer=null, HOTRES=[], HOTPICK=null, HOTBIAS=null;
+function hotInput(v){
+  clearTimeout(hotTimer); HOTPICK=null;
+  if(v.trim().length<3){ const el=document.getElementById('hotAc'); if(el){el.classList.remove('show');el.innerHTML='';} return; }
+  hotTimer=setTimeout(()=>searchHotPlaces(v.trim()),350);
+}
+async function searchHotPlaces(q){
+  HOTRES=[];
+  if(GMAPS_KEY){
+    try{
+      const r=await fetch('https://places.googleapis.com/v1/places:searchText',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,
+          'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.internationalPhoneNumber'},
+        body:JSON.stringify(Object.assign({textQuery:q,maxResultCount:6,languageCode:'nl'},
+          HOTBIAS?{locationBias:{circle:{center:HOTBIAS,radius:30000}}}:{}))
+      });
+      const js=await r.json();
+      HOTRES=(js.places||[]).map(p=>({
+        name:p.displayName&&p.displayName.text, addr:p.formattedAddress,
+        lat:p.location&&p.location.latitude, lng:p.location&&p.location.longitude,
+        gpid:p.id, rating:p.rating, tel:p.internationalPhoneNumber
+      })).filter(p=>p.name);
+    }catch(e){ HOTRES=[]; }
+  }
+  if(!HOTRES.length){
+    try{
+      const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=nl&q='+encodeURIComponent(q));
+      const js=await r.json();
+      HOTRES=js.map(p=>({name:p.name||p.display_name.split(',')[0],addr:p.display_name,lat:+p.lat,lng:+p.lon}));
+    }catch(e){}
+  }
+  const el=document.getElementById('hotAc'); if(!el) return;
+  if(!HOTRES.length){ el.classList.remove('show'); el.innerHTML=''; return; }
+  el.innerHTML=HOTRES.map((p,i)=>'<button onclick="pickHotPlace('+i+')">'+esc(p.name)+
+    (p.rating?' <span style="color:var(--amber)">★ '+p.rating+'</span>':'')+
+    '<small>'+esc(p.addr||'')+'</small></button>').join('');
+  el.classList.add('show');
+}
+function pickHotPlace(i){
+  const p=HOTRES[i]; if(!p) return;
+  HOTPICK={lat:p.lat,lng:p.lng,gpid:p.gpid};
+  document.getElementById('f_hname').value=p.name;
+  if(p.addr) document.getElementById('f_haddr').value=p.addr;
+  if(p.tel) document.getElementById('f_tel').value=p.tel;
+  const el=document.getElementById('hotAc'); if(el){el.classList.remove('show');el.innerHTML='';}
+}
 function sheetHotel(id,stopId){
   const x=id?cur.data.hotels.find(y=>y.id===id):null;
   let cin='', cout='';
+  HOTPICK=null; HOTRES=[]; HOTBIAS=null;
   if(!x&&stopId){
     const r=stopRanges(cur).find(rr=>rr.stop.id===stopId);
     if(r&&r.from){ cin=r.from; cout=r.to; }
+    if(r&&r.stop.lat!=null) HOTBIAS={latitude:r.stop.lat,longitude:r.stop.lng};
+  }
+  if(!HOTBIAS){
+    const src=(x&&x.lat!=null)?x:cur.data.stops.find(s=>s.lat!=null);
+    if(src) HOTBIAS={latitude:src.lat,longitude:src.lng};
   }
   openSheet('<h2>'+ic('bed')+' '+(x?'Slaapplek bewerken':'Slaapplek toevoegen')+'</h2>'+
-    '<div class="field"><label>Naam</label><input id="f_hname" placeholder="Bijv. Hotel Alpenblick" value="'+esc(x?x.name:'')+'"></div>'+
+    '<div class="field" style="position:relative"><label>Naam (zoek hotel via Google of typ vrij)</label><input id="f_hname" autocomplete="off" oninput="hotInput(this.value)" placeholder="Bijv. Hotel Alpenblick" value="'+esc(x?x.name:'')+'"><div class="ac" id="hotAc"></div></div>'+
     '<div class="field"><label>Adres</label><input id="f_haddr" placeholder="Hauptstraße 12, München" value="'+esc(x?x.addr:'')+'"></div>'+
     '<div class="row2"><div class="field"><label>Check-in</label><input id="f_cin" type="date" value="'+(x?(x.cin||''):cin)+'"></div>'+
     '<div class="field"><label>Check-out</label><input id="f_cout" type="date" value="'+(x?(x.cout||''):cout)+'"></div></div>'+
@@ -2016,10 +2071,12 @@ async function saveHotel(id,stopId){
     note:document.getElementById('f_hnote').value.trim() };
   const old=id?cur.data.hotels.find(y=>y.id===id):null;
   if(stopId) data.stopId=stopId; else if(old&&old.stopId) data.stopId=old.stopId;
-  if(addr && (!old||old.addr!==addr)){
+  if(HOTPICK&&HOTPICK.lat!=null){ data.lat=HOTPICK.lat; data.lng=HOTPICK.lng; data.gpid=HOTPICK.gpid; }
+  else if(addr && (!old||old.addr!==addr)){
     const g=await geocode(addr);
     if(g){ data.lat=g.lat; data.lng=g.lng; }
-  } else if(old){ data.lat=old.lat; data.lng=old.lng; }
+    if(old) data.gpid=old.gpid;
+  } else if(old){ data.lat=old.lat; data.lng=old.lng; data.gpid=old.gpid; }
   if(id) Object.assign(old, data);
   else cur.data.hotels.push(Object.assign({id:uid()},data));
   await pushData(); closeSheet(); render();
