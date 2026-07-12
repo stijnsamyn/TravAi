@@ -644,9 +644,13 @@ function render(){
     } else {
       m.innerHTML=note+'<div class="plainwrap">'+
         (tab==='diary'?renderDiary():tab==='budget'?renderBudget():renderLists())+'</div>';
-      if(tab==='diary'&&diaryMode==='micro'){
-        computeDepartures(); computeTravel(); computeWeather();
-        computeDayLeg(); mountDayMap(dayView); computeDayTotal();
+      if(tab==='diary'){
+        if(diaryMode==='micro'){
+          computeDepartures(); computeTravel(); computeWeather();
+          computeDayLeg(); mountDayMap(dayView); computeDayTotal();
+        } else if(diaryMode==='list'){
+          computeDepartures(); computeTravel(); computeWeather();
+        }
       }
     }
     loadMembers();
@@ -1391,9 +1395,7 @@ function renderDays(){
   const t=cur, days=daysOf(t), edit=canEdit(t), rs=stopRanges(t);
   if(!days.length) return '<div class="empty"><div class="big">'+ic('calendar')+'</div>Stel eerst start- en einddatum in (tik bovenaan op de datum-knop).</div>';
   const today=new Date().toISOString().slice(0,10);
-  let h='<div class="seg"><button class="'+(daysMode==='cards'?'on':'')+'" onclick="daysMode=\'cards\';render()">'+ic('layout-list')+' Overzicht</button>'+
-    '<button class="'+(daysMode==='schema'?'on':'')+'" onclick="daysMode=\'schema\';render()">'+ic('timeline')+' Reisschema</button></div>';
-  if(daysMode==='schema') return h+renderSchema();
+  let h='';
   days.forEach((d,i)=>{
     const where=rs.filter(r=>rangeDays(r).includes(d)).map(r=>r.stop.name).join(' → ');
     const acts=sortActs(t.data.acts.filter(a=>a.day===d));
@@ -1496,7 +1498,7 @@ function renderSchema(){
       }
       const ph=p.phStop&&!p.hotel; /* placeholder-slaapplek: onopvallend tonen */
       h+='<div class="sch-item" data-day="'+d+'"'+(p.act?' data-act="'+p.act.id+'"':'')+(ph?' style="padding-top:4px;padding-bottom:4px"':'')+'>'+
-        '<span class="sic" style="color:'+p.color+(ph?';font-size:15px':'')+'">'+ic(p.icon)+'</span>'+
+        '<span class="sic" style="color:'+p.color+'">'+ic(p.icon)+'</span>'+
         '<button class="ttl" '+(ph?'style="color:var(--muted);font-weight:500;font-style:italic;font-size:12.5px" ':'')+
         (p.act?'onclick="sheetAct(\''+p.act.id+'\')"':(p.hotel?'onclick="sheetHotel(\''+p.hotel.id+'\')"':(p.phStop?'onclick="sheetHotel(null,\''+p.phStop.id+'\')"':(p.stop?'onclick="sheetStop(\''+p.stop.id+'\')"':''))))+'>'+esc(p.label)+'</button>'+
         (edit&&p.act?'<span class="grip" onpointerdown="gripDown(event,\''+p.act.id+'\')">'+ic('grip-vertical')+'</span>':'')+
@@ -1608,8 +1610,9 @@ function renderDiary(){
     diaryMode=days.includes(td)?'micro':'macro'; /* tijdens de reis: open op vandaag */
   }
   let h='<div class="seg"><button class="'+(diaryMode==='macro'?'on':'')+'" onclick="diaryMode=\'macro\';render()">'+ic('calendar-month')+' Kalender</button>'+
+    '<button class="'+(diaryMode==='list'?'on':'')+'" onclick="diaryMode=\'list\';render()">'+ic('layout-list')+' Lijst</button>'+
     '<button class="'+(diaryMode==='micro'?'on':'')+'" onclick="diaryMode=\'micro\';render()">'+ic('sun')+' Dag</button></div>';
-  return h+(diaryMode==='macro'?renderCal():renderToday());
+  return h+(diaryMode==='macro'?renderCal():diaryMode==='list'?renderDays():renderToday());
 }
 function renderToday(){
   const t=cur, days=daysOf(t), edit=canEdit(t);
