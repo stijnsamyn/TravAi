@@ -247,7 +247,7 @@
   .sch-trav .ti{font-size:15px;color:var(--muted)}
   .sch-trav .mid{flex:1;text-align:center;color:var(--muted)}
   .sch-none{padding:6px 14px 10px;font-size:12.5px;color:var(--muted);font-style:italic}
-  .ghost{position:fixed;z-index:900;opacity:.92;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.25);border-radius:12px;pointer-events:none;padding:6px 10px}
+  .drag-ghost{position:fixed;z-index:900;opacity:.92;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.25);border-radius:12px;pointer-events:none;padding:6px 10px;font-weight:700}
   .drop-line{position:absolute;height:3px;background:var(--green);z-index:890;border-radius:2px;pointer-events:none;box-shadow:0 0 0 2px rgba(47,190,143,.25)}
   .overlap{margin-top:5px;font-size:12px;font-weight:700;color:var(--red);background:var(--red-soft);border-radius:8px;padding:4px 9px;display:inline-block}
   .opens-tag{display:inline-block;font-size:11px;font-weight:700;background:var(--amber-soft);color:#8a5a00;border-radius:99px;padding:2px 8px;margin-top:4px}
@@ -400,7 +400,7 @@ const GMAPS_KEY='AIzaSyCWDRxNNWM7bbM0jyNqM0ccCMj4Zr-Tsgc'; // Google Places API-
 const BUFFER_MIN=15;        // buffer bij vertrekadvies
 
 /* instellingen (per toestel bewaard) */
-let SETTINGS={veh:'car',range:330,charge:25};
+let SETTINGS={veh:'car',range:330,charge:25,nav:'google'};
 try{ Object.assign(SETTINGS, JSON.parse(localStorage.getItem('travai_settings')||'{}')); }catch(e){}
 
 let sb=null, user=null, RT=null;
@@ -613,6 +613,13 @@ function sheetSettings(){
     '<div class="row2"><div class="field"><label>Actieradius (km)</label><input id="s_range" type="number" inputmode="numeric" value="'+SETTINGS.range+'"></div>'+
     '<div class="field"><label>Laadtijd per stop (min)</label><input id="s_charge" type="number" inputmode="numeric" value="'+SETTINGS.charge+'"></div></div>'+
     '<p style="font-size:12.5px;color:var(--muted);margin:-4px 0 6px">Actieradius en laadtijd gelden alleen voor elektrisch. Richtwaarde Tesla Model Y: 330 km op de snelweg, 25 min per laadstop.</p>'+
+    '<div class="field"><label>Navigeren met</label><select id="s_nav">'+
+      '<option value="google"'+(SETTINGS.nav==='google'?' selected':'')+'>Google Maps</option>'+
+      '<option value="waze"'+(SETTINGS.nav==='waze'?' selected':'')+'>Waze</option>'+
+      '<option value="apple"'+(SETTINGS.nav==='apple'?' selected':'')+'>Apple Kaarten</option>'+
+      '<option value="tesla"'+(SETTINGS.nav==='tesla'?' selected':'')+'>Tesla (via deelmenu naar je auto)</option>'+
+    '</select></div>'+
+    '<p style="font-size:12.5px;color:var(--muted);margin:-4px 0 6px">Tesla: de bestemming wordt gedeeld; kies in het deelmenu de Tesla-app en hij verschijnt in de navigatie van je auto.</p>'+
     '<div class="btns"><button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveSettings()">Bewaar</button></div>');
 }
@@ -620,8 +627,25 @@ function saveSettings(){
   SETTINGS.veh=document.getElementById('s_veh').value;
   SETTINGS.range=Math.max(50,+document.getElementById('s_range').value||330);
   SETTINGS.charge=Math.max(5,+document.getElementById('s_charge').value||25);
+  SETTINGS.nav=document.getElementById('s_nav').value;
   localStorage.setItem('travai_settings',JSON.stringify(SETTINGS));
   closeSheet(); render();
+}
+/* navigeer naar een punt met de gekozen app (Google/Waze/Apple/Tesla) */
+function navTo(lat,lng,label){
+  if(lat==null){ alert('Geen locatie bekend voor deze plek.'); return; }
+  const nav=SETTINGS.nav||'google';
+  if(nav==='waze'){ window.open('https://waze.com/ul?ll='+lat+','+lng+'&navigate=yes','_blank'); return; }
+  if(nav==='apple'){ window.open('https://maps.apple.com/?daddr='+lat+','+lng,'_blank'); return; }
+  if(nav==='tesla'){
+    if(navigator.share){
+      navigator.share({title:label||'Bestemming',text:label||'Bestemming',url:'https://www.google.com/maps/search/?api=1&query='+lat+','+lng}).catch(()=>{});
+    } else {
+      alert('Delen wordt hier niet ondersteund (werkt op iPhone/iPad). Kies anders Google Maps of Waze in Instellingen.');
+    }
+    return;
+  }
+  window.open('https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng,'_blank');
 }
 
 /* ================= AUTH ================= */
@@ -1106,7 +1130,7 @@ function sheetLeg(toId){
     '<div class="field" style="margin-top:14px"><label>Vertrektijd</label><input id="f_dep" type="time" value="'+esc(b.depTime||'10:00')+'" '+(edit?'onchange="saveDepTime(\''+b.id+'\')"':'disabled')+'></div>'+
     '<div class="arrive-line" id="arriveLine">Aankomst: —</div>'+
     '<div class="field" style="margin-top:12px"><label>Notitie (vluchtnr, perron, laadplan…)</label><input id="f_legnote" value="'+esc(b.legNote||'')+'" '+(edit?'onchange="saveLegNote(\''+b.id+'\')"':'readonly')+'></div>'+
-    '<div class="btns"><a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" href="'+((a.lat!=null&&b.lat!=null)?dirUrl(a,b):'#')+'">'+ic('navigation')+' Open in Maps</a>'+
+    '<div class="btns">'+(b.lat!=null?'<button class="btn ghost" onclick="navTo('+b.lat+','+b.lng+',\''+esc(b.name)+'\')">'+ic('navigation')+' Navigeer</button>':'')+
     '<button class="btn primary" onclick="closeSheet()">Sluiten</button></div>');
   fillLegSheet(a,b);
 }
@@ -1218,7 +1242,8 @@ function buildActCards(acts,edit){
       (a.opens?'<span class="opens-tag">opent om '+esc(a.opens)+'</span>':'')+
       (a.addr?'<div class="addr">'+ic('map-pin')+' '+esc(a.addr)+'</div>':'')+
       ((a.addr||a.gpid||a.photo)?'<button class="maplink" style="border:none;cursor:pointer" onclick="sheetPlace(\''+a.id+'\')">'+ic('photo')+' Info &amp; foto\'s</button>':'')+
-      (a.addr?'<a class="maplink" target="_blank" href="'+gmapsUrl(a.addr)+'">Google Maps</a>':'')+
+      (a.lat!=null?'<button class="maplink" style="border:none;cursor:pointer" onclick="navTo('+a.lat+','+a.lng+',\''+esc(a.title)+'\')">'+ic('navigation')+' Navigeer</button>':
+        (a.addr?'<a class="maplink" target="_blank" href="'+gmapsUrl(a.addr)+'">Google Maps</a>':''))+
       (a.note?'<div class="note">'+esc(a.note)+'</div>':'')+
       '<div class="dep" id="dep-'+a.id+'"></div>'+
       '</div>'+(a.photo?'<img class="actph" src="'+a.photo+'" alt="" onclick="sheetPlace(\''+a.id+'\')">':'')+'</div></div>';
@@ -1302,7 +1327,7 @@ function gripDown(e,actId){
   e.preventDefault();
   const src=e.target.closest('.sch-item');
   const rows=[...document.querySelectorAll('.sch-item[data-act],.sch-dayhead,.sch-none')].map(el=>({el,rect:el.getBoundingClientRect()}));
-  const g=document.createElement('div'); g.className='ghost'; g.textContent=src?src.querySelector('.ttl').textContent:'…';
+  const g=document.createElement('div'); g.className='drag-ghost'; g.textContent=src?src.querySelector('.ttl').textContent:'…';
   document.body.appendChild(g);
   const l=document.createElement('div'); l.className='drop-line'; document.body.appendChild(l);
   DRAG={actId,rows,ghost:g,line:l,target:null,before:false};
@@ -1898,7 +1923,8 @@ async function sheetPlace(actId){
     (canEdit(cur)?'<button class="hbtn" title="Bewerken" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':'')+'</h2>'+
     '<div id="plc" style="min-height:80px">Laden…</div>'+
     '<div class="btns">'+
-    (a.addr?'<a class="btn ghost" style="display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" target="_blank" href="'+gmapsUrl(a.addr)+'">'+ic('navigation')+' Maps</a>':'')+
+    (a.lat!=null?'<button class="btn ghost" onclick="navTo('+a.lat+','+a.lng+',\''+esc(a.title)+'\')">'+ic('navigation')+' Navigeer</button>':
+      (a.addr?'<a class="btn ghost" style="display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" target="_blank" href="'+gmapsUrl(a.addr)+'">'+ic('navigation')+' Maps</a>':''))+
     '<button class="btn primary" onclick="closeSheet()">Sluiten</button></div>');
   const box=()=>document.getElementById('plc');
   if(!GMAPS_KEY){ if(box()) box().innerHTML='<p style="color:var(--muted);font-size:14px">Foto\'s en details vereisen de Google Places-koppeling.</p>'; return; }
