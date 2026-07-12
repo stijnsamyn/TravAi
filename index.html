@@ -1134,7 +1134,8 @@ async function computeLegs(){
     drawRoute();
   }
   const st=document.getElementById('tripstats');
-  if(st&&any) st.innerHTML=ic('route')+' Totaal: '+Math.round(totKm)+' km · '+durTxt(totMin)+' onderweg'+(totCh?' · '+ic('bolt')+totCh+' laadstop'+(totCh>1?'s':''):'');
+  const nLegs=ss.filter((s,i)=>i>0&&s.lat!=null&&ss[i-1].lat!=null).length;
+  if(st&&any) st.innerHTML=ic('route')+' Hele reis: '+Math.round(totKm)+' km · '+durTxt(totMin)+' rijden, gespreid over '+nLegs+' etappes'+(totCh?' · '+ic('bolt')+totCh+' laadstop'+(totCh>1?'s':''):'');
 }
 function sheetLeg(toId){
   const ss=cur.data.stops, i=ss.findIndex(x=>x.id===toId);
