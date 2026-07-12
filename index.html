@@ -911,11 +911,8 @@ function drawRoute(){
     if(a.lat==null||b.lat==null) continue;
     const st=MODE_STYLE[mode]||MODE_STYLE.car;
     let drawn=false;
-    if(mode==='car'||mode==='moto'||mode==='taxi'||mode==='bike'||mode==='foot'||mode==='bus'){
-      const prof=(mode==='bike')?'bike':(mode==='foot')?'foot':'car';
-      const c=LEGCACHE[legKey(a,b,prof)];
-      if(c&&c.geometry){ L.geoJSON(c.geometry,{style:{color:st.color,weight:3.5,opacity:.85,dashArray:st.dash||null}}).addTo(ROUTELAYER); drawn=true; }
-    }
+    const g=LEGGEOM[b.id];
+    if(g){ L.geoJSON(g,{style:{color:st.color,weight:3.5,opacity:.85,dashArray:st.dash||null}}).addTo(ROUTELAYER); drawn=true; }
     if(!drawn){
       L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:st.color,weight:3,dashArray:st.dash||'7 7',opacity:.8}).addTo(ROUTELAYER);
     }
@@ -993,30 +990,46 @@ function addPoi(i){
 }
 
 /* ================= ETAPPES (routering + voertuig) ================= */
+const LEGGEOM={}; /* getekende routegeometrie per etappe (id van de aankomststop) */
 function legKey(a,b,mode){ return a.lat+','+a.lng+';'+b.lat+','+b.lng+';'+mode; }
-async function osrm(a,b,prof){
-  const key=legKey(a,b,prof);
+async function osrmVia(pts,prof){
+  const key=pts.map(p=>p.lat+','+p.lng).join(';')+';'+prof;
   if(LEGCACHE[key]) return LEGCACHE[key];
   const path=prof==='foot'?'routed-foot':prof==='bike'?'routed-bike':'routed-car';
   try{
-    const r=await fetch('https://routing.openstreetmap.de/'+path+'/route/v1/driving/'+a.lng+','+a.lat+';'+b.lng+','+b.lat+'?overview=full&geometries=geojson');
+    const coords=pts.map(p=>p.lng+','+p.lat).join(';');
+    const r=await fetch('https://routing.openstreetmap.de/'+path+'/route/v1/driving/'+coords+'?overview=full&geometries=geojson');
     const js=await r.json();
     if(js.code!=='Ok'||!js.routes||!js.routes[0]) throw 0;
     const rt=js.routes[0];
     LEGCACHE[key]={km:rt.distance/1000, min:rt.duration/60, geometry:rt.geometry};
   }catch(e){
     /* terugval: hemelsbreed ×1.25 */
-    const km=havKm(a,b)*1.25;
+    let km=0; for(let i=1;i<pts.length;i++) km+=havKm(pts[i-1],pts[i]);
+    km*=1.25;
     LEGCACHE[key]={km, min:prof==='foot'?km/4.5*60:prof==='bike'?km/16*60:km/80*60, geometry:null, est:true};
   }
   return LEGCACHE[key];
 }
-/* reisinfo per vervoermiddel */
-async function legInfo(a,b,mode){
-  mode=mode||'car';
-  if(mode==='car'||mode==='foot'||mode==='bike') return osrm(a,b,mode==='car'?'car':mode);
-  if(mode==='moto'||mode==='taxi') return osrm(a,b,'car');
-  if(mode==='bus'){ const c=await osrm(a,b,'car'); return {km:c.km,min:c.min*1.45,est:true}; }
+function osrm(a,b,prof){ return osrmVia([a,b],prof); }
+/* activiteiten op de reisdag die onderweg liggen → automatische routepunten */
+function legWaypoints(a,b,travelDay){
+  if(!travelDay||!cur||a.lat==null||b.lat==null) return [];
+  const k=Math.cos((a.lat+b.lat)/2*Math.PI/180);
+  const dx=(b.lng-a.lng)*k, dy=b.lat-a.lat;
+  const len2=dx*dx+dy*dy; if(!len2) return [];
+  return sortActs(cur.data.acts.filter(x=>x.day===travelDay&&x.lat!=null))
+    .map(x=>({x, t:(((x.lng-a.lng)*k)*dx+(x.lat-a.lat)*dy)/len2}))
+    .filter(o=>o.t>0.03&&o.t<0.97)
+    .sort((p,q)=>p.t-q.t).slice(0,6).map(o=>o.x);
+}
+/* reisinfo per vervoermiddel, optioneel via tussenliggende activiteiten */
+async function legInfo(a,b,mode,via){
+  mode=mode||'car'; via=via||[];
+  const pts=[a,...via,b];
+  if(mode==='car'||mode==='foot'||mode==='bike') return osrmVia(pts,mode==='car'?'car':mode);
+  if(mode==='moto'||mode==='taxi') return osrmVia(pts,'car');
+  if(mode==='bus'){ const c=await osrmVia(pts,'car'); return {km:c.km,min:c.min*1.45,geometry:c.geometry,est:true}; }
   const km=havKm(a,b); let min=km/(MODE_SPEED[mode]||80)*60;
   if(mode==='plane') min+=60; /* taxiën, klimmen, landen — excl. inchecken */
   return {km,min,est:true};
@@ -1027,17 +1040,20 @@ function chargeStops(km,mode){
 }
 async function computeLegs(){
   const ss=cur?cur.data.stops:[];
+  const rs=cur?stopRanges(cur):[];
   let totKm=0, totMin=0, totCh=0, any=false;
   for(let i=1;i<ss.length;i++){
     const a=ss[i-1], b=ss[i], mode=b.mode||'car';
     const el=document.getElementById('leg-'+b.id);
     if(a.lat==null||b.lat==null){ if(el) el.innerHTML=ic('map-pin')+' locatie onbekend'; continue; }
-    const c=await legInfo(a,b,mode);
+    const wp=(mode==='plane'||mode==='boat'||mode==='train')?[]:legWaypoints(a,b,rs[i]&&rs[i].from);
+    const c=await legInfo(a,b,mode,wp);
     if(!cur) return;
+    LEGGEOM[b.id]=c.geometry||null;
     const n=chargeStops(c.km,mode);
     totKm+=c.km; totMin+=c.min+n*SETTINGS.charge; totCh+=n; any=true;
     const el2=document.getElementById('leg-'+b.id);
-    if(el2) el2.innerHTML=ic(MODES[mode][0])+' '+durTxt(c.min+n*SETTINGS.charge)+' · '+Math.round(c.km)+' km'+(n?' <span class="zap">'+ic('bolt')+n+'</span>':'')+(c.est?' ≈':'');
+    if(el2) el2.innerHTML=ic(MODES[mode][0])+' '+durTxt(c.min+n*SETTINGS.charge)+' · '+Math.round(c.km)+' km'+(wp.length?' · via '+wp.length:'')+(n?' <span class="zap">'+ic('bolt')+n+'</span>':'')+(c.est?' ≈':'');
     drawRoute();
   }
   const st=document.getElementById('tripstats');
@@ -1065,10 +1081,13 @@ async function fillLegSheet(a,b){
   const box=document.getElementById('legModes');
   if(a.lat==null||b.lat==null){ if(box) box.innerHTML='<div class="mode-card"><span class="mi">'+ic('map-pin')+'</span><div class="mm"><b>Locatie onbekend</b></div></div>'; return; }
   const mode=b.mode||'car';
-  const c=await legInfo(a,b,mode);
+  const rs=stopRanges(cur), bi=cur.data.stops.indexOf(b);
+  const wp=(mode==='plane'||mode==='boat'||mode==='train')?[]:legWaypoints(a,b,rs[bi]&&rs[bi].from);
+  const c=await legInfo(a,b,mode,wp);
   const lbl=mode==='car'?(SETTINGS.veh==='ev'?'Auto (elektrisch)':'Auto'):MODES[mode][1];
   let h='<div class="mode-card"><span class="mi">'+ic(MODES[mode][0])+'</span><div class="mm"><b>'+lbl+'</b>'+
     '<div class="s">'+durTxt(c.min)+' · '+Math.round(c.km)+' km'+(c.est?' (schatting'+(mode==='plane'?', excl. inchecken':'')+')':'')+'</div></div></div>';
+  if(wp.length) h+='<div class="charge" style="background:var(--green-soft);color:var(--green-ink)">'+ic('route')+' Route loopt automatisch via: '+wp.map(x=>esc(x.title)).join(' → ')+'</div>';
   let extra=0;
   if(mode==='car'){
     const n=chargeStops(c.km,mode); extra=n*SETTINGS.charge;
@@ -1269,10 +1288,12 @@ async function computeDayLeg(){
   const a=cur.data.stops[i-1];
   if(a.lat==null||b.lat==null){ el.textContent='locatie onbekend'; return; }
   const mode=b.mode||'car';
-  const c=await legInfo(a,b,mode);
+  const rs=stopRanges(cur), bi=cur.data.stops.indexOf(b);
+  const wp=(mode==='plane'||mode==='boat'||mode==='train')?[]:legWaypoints(a,b,rs[bi]&&rs[bi].from);
+  const c=await legInfo(a,b,mode,wp);
   const n=chargeStops(c.km,mode);
   const el2=document.getElementById('dv-leg'); if(!el2) return;
-  let txt=durTxt(c.min+n*SETTINGS.charge)+' · '+Math.round(c.km)+' km'+(n?' · '+n+' laadstop'+(n>1?'s':''):'')+(c.est?' (schatting)':'');
+  let txt=durTxt(c.min+n*SETTINGS.charge)+' · '+Math.round(c.km)+' km'+(wp.length?' · via '+wp.map(x=>x.title).join(', '):'')+(n?' · '+n+' laadstop'+(n>1?'s':''):'')+(c.est?' (schatting)':'');
   const dm=hmToMin(b.depTime);
   if(dm!=null) txt+=' — vertrek '+minToHm(dm)+' → aankomst ± '+minToHm(dm+c.min+n*SETTINGS.charge);
   el2.textContent=txt;
