@@ -262,6 +262,7 @@
   .act .body .addr{font-size:13px;color:var(--muted);margin-top:3px;word-break:break-word}
   .act .body .note{font-size:13px;color:var(--muted);margin-top:3px;font-style:italic}
   .actph{width:54px;height:54px;border-radius:12px;object-fit:cover;flex:none;cursor:pointer}
+  .actph.shift{margin-top:30px} /* onder de bewerkknoppen rechtsboven */
   .phrow{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;-webkit-overflow-scrolling:touch}
   .phrow img{height:130px;border-radius:12px;flex:none}
   .plc-line{font-size:14px;font-weight:600;margin-top:8px;display:flex;align-items:flex-start;gap:8px}
@@ -1573,7 +1574,7 @@ function buildActCards(acts,edit){
       (a.gpid?'<a class="maplink" target="_blank" href="https://www.google.com/maps/place/?q=place_id:'+encodeURIComponent(a.gpid)+'">'+ic('brand-google')+' Google</a>':'')+
       (a.note?'<div class="note">'+esc(a.note)+'</div>':'')+
       '<div class="dep" id="dep-'+a.id+'"></div>'+
-      '</div>'+(a.photo?'<img class="actph" src="'+a.photo+'" alt="" onclick="sheetPlace(\''+a.id+'\')">':'')+'</div></div>';
+      '</div>'+(a.photo?'<img class="actph'+(edit?' shift':'')+'" src="'+a.photo+'" alt="" onclick="sheetPlace(\''+a.id+'\')">':'')+'</div></div>';
     prev=a;
   });
   return h;
