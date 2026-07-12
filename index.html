@@ -1244,6 +1244,7 @@ function buildActCards(acts,edit){
       ((a.addr||a.gpid||a.photo)?'<button class="maplink" style="border:none;cursor:pointer" onclick="sheetPlace(\''+a.id+'\')">'+ic('photo')+' Info &amp; foto\'s</button>':'')+
       (a.lat!=null?'<button class="maplink" style="border:none;cursor:pointer" onclick="navTo('+a.lat+','+a.lng+',\''+esc(a.title)+'\')">'+ic('navigation')+' Navigeer</button>':
         (a.addr?'<a class="maplink" target="_blank" href="'+gmapsUrl(a.addr)+'">Google Maps</a>':''))+
+      (a.gpid?'<a class="maplink" target="_blank" href="https://www.google.com/maps/place/?q=place_id:'+encodeURIComponent(a.gpid)+'">'+ic('brand-google')+' Google</a>':'')+
       (a.note?'<div class="note">'+esc(a.note)+'</div>':'')+
       '<div class="dep" id="dep-'+a.id+'"></div>'+
       '</div>'+(a.photo?'<img class="actph" src="'+a.photo+'" alt="" onclick="sheetPlace(\''+a.id+'\')">':'')+'</div></div>';
@@ -1961,6 +1962,7 @@ async function sheetPlace(actId){
     }
     if(p.internationalPhoneNumber) h+='<div class="plc-line">'+ic('phone')+'<a href="tel:'+esc(p.internationalPhoneNumber.replace(/\s/g,''))+'">'+esc(p.internationalPhoneNumber)+'</a></div>';
     if(p.websiteUri) h+='<div class="plc-line">'+ic('world')+'<a target="_blank" href="'+esc(p.websiteUri)+'">Website</a></div>';
+    if(p.googleMapsUri) h+='<div class="plc-line">'+ic('brand-google')+'<a target="_blank" href="'+esc(p.googleMapsUri)+'">Bekijk op Google Maps (recensies, routes…)</a></div>';
     if(box()) box().innerHTML=h||'<p style="color:var(--muted);font-size:14px">Geen extra gegevens beschikbaar.</p>';
   }catch(e){ if(box()) box().innerHTML='<p style="color:var(--muted);font-size:14px">Details laden mislukt. Werkt dit domein met je Google-key?</p>'; }
 }
