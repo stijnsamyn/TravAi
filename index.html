@@ -1318,7 +1318,7 @@ function addPoi(i){
 }
 
 /* ================= ETAPPES (routering + voertuig) ================= */
-const LEGGEOM={}; /* getekende routegeometrie per etappe (id van de aankomststop) */
+let LEGGEOM={}; /* getekende routegeometrie per etappe (id van de aankomststop) */
 function legKey(a,b,mode){ return a.lat+','+a.lng+';'+b.lat+','+b.lng+';'+mode; }
 async function osrmVia(pts,prof){
   const key=pts.map(p=>p.lat+','+p.lng).join(';')+';'+prof;
