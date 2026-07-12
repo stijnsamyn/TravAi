@@ -1401,7 +1401,7 @@ function sheetLeg(toId){
       Object.entries(MODES).map(([k,v])=>'<button class="'+(k===mode?'on':'')+'" '+(edit?'onclick="saveLegMode(\''+b.id+'\',\''+k+'\')"':'disabled')+'>'+ic(v[0])+' '+v[1]+'</button>').join('')+
     '</div></div>'+
     '<div id="legModes"></div>'+
-    '<div class="field" style="margin-top:14px"><label>Vertrektijd</label><input id="f_dep" type="time" value="'+esc(b.depTime||'10:00')+'" '+(edit?'onchange="saveDepTime(\''+b.id+'\')"':'disabled')+'></div>'+
+    '<div class="field" style="margin-top:14px"><label>Vertrektijd (leeg = automatisch)</label><input id="f_dep" type="time" value="'+esc(b.depTime||'')+'" '+(edit?'onchange="saveDepTime(\''+b.id+'\')"':'disabled')+'></div>'+
     '<div class="arrive-line" id="arriveLine">Aankomst: —</div>'+
     '<div class="field" style="margin-top:12px"><label>Notitie (vluchtnr, perron, laadplan…)</label><input id="f_legnote" value="'+esc(b.legNote||'')+'" '+(edit?'onchange="saveLegNote(\''+b.id+'\')"':'readonly')+'></div>'+
     '<div class="btns">'+(b.lat!=null?'<button class="btn ghost" onclick="navTo('+b.lat+','+b.lng+',\''+esc(b.name)+'\')">'+ic('navigation')+' Navigeer</button>':'')+
@@ -1577,16 +1577,17 @@ function sheetHop(d,idx){
   const pts=schemaPoints(d); const A=pts[idx-1], B=pts[idx];
   if(!A||!B) return;
   HOPCTX={d,idx};
-  const tgt=B.act||B.hotel, tm=travModeOf(B), edit=canEdit(cur);
+  const tgt=B.act||B.hotel, depTgt=tgt||B.stop, tm=travModeOf(B), edit=canEdit(cur);
   openSheet('<h2>'+ic('route')+' Verplaatsing</h2>'+
     '<div class="leg-sub">'+esc(A.label)+' → '+esc(B.label)+' · '+fmtDagLang(d)+'</div>'+
     '<div class="field"><label>Vervoermiddel</label><div class="type-pick">'+
       [['car','car','Auto'],['foot','walk','Te voet'],['bike','bike','Fiets'],['taxi','car','Taxi'],['bus','bus','Bus']]
         .map(x=>'<button class="'+(tm===x[0]?'on':'')+'" '+(edit&&tgt?'onclick="saveHopMode(\''+x[0]+'\')"':'disabled')+'>'+ic(x[1])+' '+x[2]+'</button>').join('')+
     '</div></div>'+
+    (!tgt&&B.stop?'<div class="leg-sub" style="margin-top:-4px">Vervoermiddel van deze etappe pas je aan via de etappe-knop bij Bestemmingen.</div>':'')+
     '<div id="hopInfo" class="arrive-line">berekenen…</div>'+
     '<div class="field" style="margin-top:12px"><label>Vertrektijd (leeg = automatisch)</label>'+
-    '<input id="f_hopdep" type="time" value="'+esc((tgt&&tgt.depTime)||'')+'" '+(edit&&tgt?'onchange="saveHopDep()"':'disabled')+'></div>'+
+    '<input id="f_hopdep" type="time" value="'+esc((depTgt&&depTgt.depTime)||'')+'" '+(edit&&depTgt?'onchange="saveHopDep()"':'disabled')+'></div>'+
     '<div class="btns">'+(A.lat!=null&&B.lat!=null?'<button class="btn ghost" onclick="navTo('+B.lat+','+B.lng+',\''+esc(B.label)+'\')">'+ic('navigation')+' Navigeer</button>':'')+
     '<button class="btn primary" onclick="closeSheet()">Sluiten</button></div>');
   fillHopInfo();
@@ -1611,7 +1612,7 @@ async function saveHopMode(mode){
 }
 async function saveHopDep(){
   if(!HOPCTX) return;
-  const pts=schemaPoints(HOPCTX.d); const B=pts[HOPCTX.idx]; const tgt=B&&(B.act||B.hotel);
+  const pts=schemaPoints(HOPCTX.d); const B=pts[HOPCTX.idx]; const tgt=B&&(B.act||B.hotel||B.stop);
   if(!tgt) return;
   tgt.depTime=document.getElementById('f_hopdep').value;
   await pushData(); render(); fillHopInfo();
@@ -1647,9 +1648,13 @@ function renderSchema(){
 /* tijden en afstanden in het schema doorrekenen */
 async function computeSchema(){
   if(!cur) return;
+  const rsAll=stopRanges(cur);
   for(const d of daysOf(cur)){
     const pts=schemaPoints(d);
     let cursor=null, hops=0;
+    /* reisdag: de vertrektijd van de etappe (ingesteld via de etappe-pil) is het startpunt van de dagketen */
+    const legIdx=rsAll.findIndex(r=>r.from===d);
+    if(legIdx>0&&rsAll[legIdx].stop.depTime) cursor=hmToMin(rsAll[legIdx].stop.depTime);
     const tot={};
     for(let i=1;i<pts.length;i++){
       const A=pts[i-1], B=pts[i];
@@ -1662,7 +1667,7 @@ async function computeSchema(){
       tot[tm][0]+=c.km; tot[tm][1]+=c.min; hops++;
       const tmin=Math.ceil(c.min);
       const bt=B.act?hmToMin(B.act.time):null;
-      const fixed=(B.act&&B.act.depTime)?hmToMin(B.act.depTime):((B.hotel&&B.hotel.depTime)?hmToMin(B.hotel.depTime):null);
+      const fixed=(B.act&&B.act.depTime)?hmToMin(B.act.depTime):((B.hotel&&B.hotel.depTime)?hmToMin(B.hotel.depTime):((B.stop&&B.stop.depTime)?hmToMin(B.stop.depTime):null));
       let dep = fixed!=null ? fixed : (cursor!=null ? cursor : (bt!=null ? bt-tmin : hmToMin('09:00')));
       const arr = (fixed!=null||bt==null) ? dep+tmin : bt;
       if(B.act){
