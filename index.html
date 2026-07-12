@@ -93,8 +93,9 @@
   .nights-head .lbl{font-size:16px;font-weight:700}
   .stop{
     background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
-    padding:14px;display:flex;align-items:center;gap:12px;position:relative;
+    padding:14px 14px 6px;position:relative;
   }
+  .srow{display:flex;align-items:center;gap:12px}
   .stop .num{
     width:32px;height:32px;border-radius:50%;border:2px solid var(--green);color:var(--green);
     font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none;background:#fff;
@@ -119,6 +120,22 @@
   .stepper .n{font-size:19px;font-weight:700;min-width:24px;text-align:center}
   .stepper .lbl{font-size:10px;color:var(--muted);font-weight:700}
   .stop .kebab{position:absolute;top:6px;right:8px;background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:5px 8px}
+  /* openklapbare dagplanning per stop */
+  .chev{width:100%;border:none;background:none;color:var(--muted);font-size:11.5px;font-weight:700;padding:8px 0 7px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+  .stopdays{margin-top:8px;border-top:1px dashed var(--border);padding:6px 2px 2px}
+  .dayrow{padding:7px 0;border-bottom:1px solid #f0f4f6}
+  .dayrow:last-child{border-bottom:none}
+  .dayrow-head{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:700}
+  .dayrow-head .dn{background:var(--green-soft);color:var(--green-ink);border-radius:99px;padding:2px 9px;font-size:11px;font-weight:800}
+  .dayrow-head .addbtn{margin-left:auto;background:var(--green-soft);color:var(--green-ink);border:none;border-radius:99px;width:24px;height:24px;font-weight:800;cursor:pointer;font-size:14px;line-height:1}
+  .mini{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:10px;padding:7px 10px;margin-top:6px;font-size:13px;font-weight:600}
+  .mini.sleepbg{background:var(--green-soft);color:var(--green-ink)}
+  .mini .t{color:var(--green-dark);font-weight:700;font-size:12px;min-width:36px;flex:none}
+  .mini .ttl{flex:1;min-width:0;text-align:left;background:none;border:none;font:inherit;color:inherit;cursor:pointer;padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mini .sub{font-size:11.5px;color:var(--muted);font-weight:700;flex:none}
+  .mini.sleepbg .sub{color:var(--green-ink);opacity:.75}
+  .mini .mv{background:#fff;border:1px solid var(--border);border-radius:8px;width:26px;height:26px;cursor:pointer;color:var(--muted);font-size:13px;flex:none;font-weight:800}
+  .mini-none{font-size:12px;color:var(--muted);margin-top:5px;font-style:italic}
   .leg{display:flex;align-items:center;gap:8px;padding:4px 10px}
   .leg::before,.leg::after{content:'';flex:1;border-top:1px dashed var(--border)}
   .legpill{
@@ -326,6 +343,7 @@ let listMode='todos';
 let mapOn=true;
 let MAP=null, ROUTELAYER=null, POILAYER=null;
 const LEGCACHE={}, GEOCACHE={};
+const EXPANDED={};          // welke stops opengeklapt zijn (per sessie)
 
 const MND=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
 const MNDL=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
@@ -378,6 +396,7 @@ function myRole(t){ return t.owner===user.id ? 'owner' : (memberships[t.id]||'vi
 function canEdit(t){ return t && user && (t.owner===user.id || memberships[t.id]==='editor'); }
 function totNights(t){ if(!t.start_date||!t.end_date) return 0; return Math.round((new Date(t.end_date)-new Date(t.start_date))/86400000); }
 function plannedNights(t){ return t.data.stops.reduce((s,x)=>s+(x.nights||0),0); }
+function hotelNights(h){ if(!h.cin||!h.cout) return 0; return Math.max(0,Math.round((new Date(h.cout)-new Date(h.cin))/86400000)); }
 /* datumbereik per stop: aankomst = start + som nachten ervoor */
 function stopRanges(t){
   const out=[]; let cursor=t.start_date||null;
@@ -570,21 +589,27 @@ function renderRoute(){
     }
     const hs=hotelsForStop(t,r), acts=actsForRange(t,r);
     const dts = r.from ? (s.nights>0 ? fmtKort(r.from)+' – '+fmtKort(r.to) : fmtKort(r.from)+' · Tussenstop') : 'datums instellen';
+    const open=!!EXPANDED[s.id];
     h+='<div class="stop">'+
+      '<div class="srow">'+
       '<div class="num" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'">'+(i+1)+'</div>'+
       '<div class="mid"><h3>'+esc(s.name)+'</h3><div class="dts">'+dts+'</div>'+
-      '<div class="chips">'+
-        (hs.length? hs.map(x=>'<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">🛏️ '+esc(x.name)+'</button>').join('') :
+      (open?'':'<div class="chips">'+
+        (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">🛏️ '+esc(x.name)+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
           (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">+ slaapplek</button>':''))+
-        (acts.length?'<button class="chip act" onclick="gotoDay(\''+(r.from||'')+'\')">🎯 '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
+        (acts.length?'<button class="chip act" onclick="toggleStop(\''+s.id+'\')">🎯 '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
         (edit&&r.from?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">+ activiteit</button>':'')+
-      '</div></div>'+
+      '</div>')+
+      '</div>'+
       '<div class="stepper"><div class="row">'+
         (edit?'<button onclick="chgNights(\''+s.id+'\',-1)">−</button>':'')+
         '<span class="n">'+s.nights+'</span>'+
         (edit?'<button onclick="chgNights(\''+s.id+'\',1)">+</button>':'')+
       '</div><span class="lbl">'+(s.nights===1?'nacht':'nachten')+'</span></div>'+
+      '</div>'+
       (edit?'<button class="kebab" onclick="sheetStop(\''+s.id+'\')">✎</button>':'')+
+      (open?renderStopDays(t,r,edit):'')+
+      (r.from?'<button class="chev" onclick="toggleStop(\''+s.id+'\')">'+(open?'▲ Dagplanning verbergen':'▼ Dagplanning tonen')+'</button>':'')+
     '</div>';
   });
   if(edit){
@@ -599,6 +624,46 @@ async function chgNights(id,d){
   await pushData(); render();
 }
 function gotoDay(day){ tab='days'; render(); setTimeout(()=>{ const el=document.getElementById('day-'+day); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },60); }
+function toggleStop(id){ EXPANDED[id]=!EXPANDED[id]; render(); }
+
+/* dagplanning binnen een opengeklapte stop */
+function renderStopDays(t,r,edit){
+  const s=r.stop, allDays=daysOf(t);
+  let h='<div class="stopdays">';
+  const hs=hotelsForStop(t,r);
+  hs.forEach(x=>{
+    const n=hotelNights(x);
+    h+='<div class="mini sleepbg"><span>🛏️</span><button class="ttl" onclick="sheetHotel(\''+x.id+'\')">'+esc(x.name)+'</button>'+
+       '<span class="sub">'+(x.cin?fmtKort(x.cin)+' → '+fmtKort(x.cout):'')+(n?' · '+n+(n===1?' nacht':' nachten'):'')+'</span></div>';
+  });
+  if(!hs.length&&edit&&s.nights>0)
+    h+='<div class="mini"><span>🛏️</span><button class="ttl" onclick="sheetHotel(null,\''+s.id+'\')">+ slaapplek voor '+s.nights+(s.nights===1?' nacht':' nachten')+'</button></div>';
+  rangeDays(r).forEach(d=>{
+    const di=allDays.indexOf(d)+1;
+    const acts=t.data.acts.filter(a=>a.day===d).sort((a,b)=>(a.time||a.opens||'99').localeCompare(b.time||b.opens||'99'));
+    h+='<div class="dayrow"><div class="dayrow-head"><span class="dn">Dag '+di+'</span><span>'+fmtKort(d)+'</span>'+
+       (edit?'<button class="addbtn" title="Activiteit toevoegen op deze dag" onclick="sheetAct(null,\''+d+'\')">+</button>':'')+'</div>';
+    if(!acts.length) h+='<div class="mini-none">nog niets gepland</div>';
+    acts.forEach(a=>{
+      const ic=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
+      h+='<div class="mini"><span class="t">'+(a.time?esc(a.time):'—')+'</span>'+
+         '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+ic+' '+esc(a.title)+'</button>'+
+         (edit?'<button class="mv" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">‹</button><button class="mv" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">›</button>':'')+
+         '</div>';
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  return h;
+}
+/* activiteit een dag eerder/later schuiven */
+async function moveAct(id,d){
+  const a=cur.data.acts.find(x=>x.id===id); if(!a||!a.day) return;
+  const days=daysOf(cur); const i=days.indexOf(a.day); const j=i+d;
+  if(i<0||j<0||j>=days.length) return;
+  a.day=days[j];
+  await pushData(); render();
+}
 
 /* --- bestemming zoeken (Nominatim) --- */
 let acTimer=null, AC=[];
@@ -831,7 +896,10 @@ function renderDays(){
     if(!acts.length) h+='<div class="card" style="color:var(--muted);font-size:13px">Nog niets gepland.</div>';
     acts.forEach(a=>{
       const ic=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
-      h+='<div class="card">'+(edit?'<button class="kebab" onclick="sheetAct(\''+a.id+'\')">✎</button>':'')+
+      h+='<div class="card">'+(edit?
+        '<button class="kebab" style="right:76px" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">‹</button>'+
+        '<button class="kebab" style="right:42px" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">›</button>'+
+        '<button class="kebab" onclick="sheetAct(\''+a.id+'\')">✎</button>':'')+
         '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+'</div><div class="body">'+
         '<h4>'+ic+' '+esc(a.title)+'</h4>'+
         (a.opens?'<span class="opens-tag">🕐 opent om '+esc(a.opens)+'</span>':'')+
