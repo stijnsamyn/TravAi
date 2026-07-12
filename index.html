@@ -524,7 +524,25 @@ let diaryMode=null;        // Dagboek: macro (kalender) | micro (dag-detail); nu
 let mapOn=true;
 let MAP=null, ROUTELAYER=null, MAPVIEW=null;
 let SCROLL_TODAY=false;
-const LEGCACHE={}, GEOCACHE={}, WEATHER={};
+/* routecache overleeft herladen: afstanden worden alleen berekend als er echt iets wijzigt */
+const LEGCACHE=(function(){ try{ return JSON.parse(localStorage.getItem('travai_legcache')||'{}'); }catch(e){ return {}; } })();
+let LCTIMER=null;
+function saveLegCache(){
+  clearTimeout(LCTIMER);
+  LCTIMER=setTimeout(()=>{
+    try{
+      /* schattingen (mislukte opvragingen) niet bewaren; bij te groot de oudste helft weg */
+      let entries=Object.entries(LEGCACHE).filter(([k,v])=>!v.est);
+      let js=JSON.stringify(Object.fromEntries(entries));
+      while(js.length>2500000&&entries.length>20){
+        entries=entries.slice(Math.ceil(entries.length/2));
+        js=JSON.stringify(Object.fromEntries(entries));
+      }
+      localStorage.setItem('travai_legcache',js);
+    }catch(e){}
+  },1200);
+}
+const GEOCACHE={}, WEATHER={};
 const EXPANDED={};
 
 const MND=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
@@ -1398,6 +1416,7 @@ async function osrmVia(pts,prof){
     if(js.code!=='Ok'||!js.routes||!js.routes[0]) throw 0;
     const rt=js.routes[0];
     LEGCACHE[key]={km:rt.distance/1000, min:rt.duration/60, geometry:rt.geometry};
+    saveLegCache();
   }catch(e){
     /* terugval: hemelsbreed ×1.25 */
     let km=0; for(let i=1;i<pts.length;i++) km+=havKm(pts[i-1],pts[i]);
