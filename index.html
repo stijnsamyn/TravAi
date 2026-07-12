@@ -387,7 +387,9 @@ const MNDL=['januari','februari','maart','april','mei','juni','juli','augustus',
 const DAG=['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
 const DAGK=['zo','ma','di','wo','do','vr','za'];
 function ic(n){ return '<i class="ti ti-'+n+'"></i>'; }
-const ACT_TYPES={act:['target','Activiteit'],food:['tools-kitchen-2','Eten & drinken'],transport:['train','Vervoer'],flight:['plane','Vlucht']};
+const ACT_TYPES={act:['target','Activiteit'],sight:['star','Bezienswaardigheid'],museum:['building-bank','Museum'],castle:['building-castle','Kasteel/Fort'],nature:['trees','Natuur'],sport:['run','Sport'],shop:['shopping-bag','Winkelen'],food:['tools-kitchen-2','Eten & drinken'],transport:['train','Vervoer'],flight:['plane','Vlucht']};
+/* Google/OSM-plaatstype naar activiteitstype */
+const GTYPE_MAP={museum:'museum',art_gallery:'museum',gallery:'museum',historical_landmark:'castle',castle:'castle',ruins:'castle',church:'sight',tourist_attraction:'sight',attraction:'sight',viewpoint:'sight',monument:'sight',memorial:'sight',park:'nature',zoo:'nature',national_park:'nature',stadium:'sport',gym:'sport',shopping_mall:'shop',clothing_store:'shop',department_store:'shop',restaurant:'food',cafe:'food',bar:'food',bakery:'food',amusement_park:'act',theme_park:'act'};
 const EXP_CATS={stay:['bed','Verblijf'],food:['tools-kitchen-2','Eten'],transport:['car','Vervoer'],fun:['ticket','Activiteiten'],shop:['shopping-bag','Shopping'],other:['package','Overig']};
 const TRIP_ICONS=['plane','beach','mountain','building-skyscraper','car','ship','snowflake','tent','pizza','compass','bike','camera'];
 const MODES={car:['car','Auto'],moto:['motorbike','Moto'],taxi:['car','Taxi'],bus:['bus','Bus'],train:['train','Trein'],plane:['plane','Vlucht'],boat:['ship','Boot'],bike:['bike','Fiets'],foot:['walk','Te voet']};
@@ -550,7 +552,7 @@ function render(){
         (tab==='today'?renderToday():tab==='days'?renderDays():tab==='cal'?renderCal():tab==='budget'?renderBudget():renderLists())+'</div>';
       if(tab==='days'||tab==='today'){
         computeDepartures(); computeTravel(); computeWeather();
-        if(tab==='today') computeDayLeg();
+        if(tab==='today'){ computeDayLeg(); mountDayMap(dayView); }
         if(tab==='days'&&SCROLL_TODAY){
           SCROLL_TODAY=false;
           const td=new Date().toISOString().slice(0,10);
@@ -958,7 +960,7 @@ function addPoi(i){
   const p=POIS[i]; if(!p) return;
   MAP.closePopup();
   const day=(daysOf(cur)[0])||'';
-  sheetAct(null,day,{title:p.name,lat:p.lat,lng:p.lng,addr:p.addr,opens:p.opens,photo:p.photo,type:(p.kind==='restaurant'||p.kind==='cafe')?'food':'act'});
+  sheetAct(null,day,{title:p.name,lat:p.lat,lng:p.lng,addr:p.addr,opens:p.opens,photo:p.photo,type:GTYPE_MAP[p.kind]||'act'});
 }
 
 /* ================= ETAPPES (routering + voertuig) ================= */
@@ -1129,6 +1131,7 @@ function buildActCards(acts,edit){
       '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+(a.end?'<div class="end">tot '+esc(a.end)+'</div>':'')+'</div><div class="body">'+
       '<h4>'+ic(icn)+' '+esc(a.title)+'</h4>'+
       (overlap?'<div class="overlap">Let op: overlapt met vorige activiteit</div>':'')+
+      (a.time&&a.end&&hmToMin(a.end)>hmToMin(a.time)?'<span class="opens-tag" style="background:var(--bg);color:var(--muted)">'+ic('clock')+' '+durTxt(hmToMin(a.end)-hmToMin(a.time))+'</span> ':'')+
       (a.opens?'<span class="opens-tag">opent om '+esc(a.opens)+'</span>':'')+
       (a.addr?'<div class="addr">'+ic('map-pin')+' '+esc(a.addr)+'</div><a class="maplink" target="_blank" href="'+mapsUrl(a.addr)+'">Kaarten</a><a class="maplink" target="_blank" href="'+gmapsUrl(a.addr)+'">Google Maps</a>':'')+
       (a.note?'<div class="note">'+esc(a.note)+'</div>':'')+
@@ -1178,10 +1181,46 @@ function renderToday(){
       (b.legNote?'<div class="sub2">'+esc(b.legNote)+'</div>':'')+
       '</div><button class="chip add" onclick="sheetLeg(\''+b.id+'\')">details</button></div></div>';
   }
+  if(dayPoints(d).length){
+    h+='<div class="card" style="padding:0;overflow:hidden"><div id="dmap" style="height:34vh"></div></div>';
+  }
   h+='<div class="section-title">Programma</div>';
   h+=buildActCards(acts,edit);
   if(edit) h+='<button class="fab" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>';
   return h;
+}
+/* dagkaart: slaapplek en activiteiten van die dag, met wandel-/autoroute ertussen */
+let DMAP=null;
+function dayPoints(d){
+  const pts=[];
+  const hot=hotelForDay(cur,d)||hotelForDay(cur,addDays(d,-1));
+  if(hot&&hot.lat!=null) pts.push({lat:hot.lat,lng:hot.lng,label:hot.name,kind:'bed'});
+  sortActs(cur.data.acts.filter(a=>a.day===d&&a.lat!=null)).forEach(a=>pts.push({lat:a.lat,lng:a.lng,label:a.title,kind:'act'}));
+  return pts;
+}
+function mountDayMap(d){
+  const el=document.getElementById('dmap'); if(!el) return;
+  if(DMAP){ DMAP.remove(); DMAP=null; }
+  const pts=dayPoints(d); if(!pts.length) return;
+  DMAP=L.map('dmap',{zoomControl:false,attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(DMAP);
+  let n=0;
+  pts.forEach(p=>{
+    const html=p.kind==='bed'?'<div class="mpin bed">'+ic('bed')+'</div>':'<div class="mpin" style="color:#b7791f">'+(++n)+'</div>';
+    L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html,iconSize:[32,32],iconAnchor:[16,16]})}).addTo(DMAP).bindPopup(esc(p.label));
+  });
+  DMAP.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])).pad(0.3));
+  drawDayRoutes(pts);
+}
+async function drawDayRoutes(pts){
+  for(let i=1;i<pts.length;i++){
+    const a=pts[i-1], b=pts[i];
+    const foot=havKm(a,b)<=8; /* korte afstand: wandelroute, anders autoroute */
+    const c=await osrm(a,b,foot?'foot':'car');
+    if(!DMAP) return;
+    if(c.geometry) L.geoJSON(c.geometry,{style:{color:foot?'#1e9e74':'#e8467c',weight:3,opacity:.8,dashArray:foot?'2 7':null}}).addTo(DMAP);
+    else L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:'#8296a8',weight:2,dashArray:'6 6'}).addTo(DMAP);
+  }
 }
 function dayShift(n){
   const days=daysOf(cur); const i=days.indexOf(dayView);
@@ -1544,7 +1583,7 @@ async function searchActPlaces(q){
       const r=await fetch('https://places.googleapis.com/v1/places:searchText',{
         method:'POST',
         headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,
-          'X-Goog-FieldMask':'places.displayName,places.formattedAddress,places.location,places.rating,places.photos,places.regularOpeningHours'},
+          'X-Goog-FieldMask':'places.displayName,places.formattedAddress,places.location,places.rating,places.photos,places.primaryType,places.regularOpeningHours'},
         body:JSON.stringify(Object.assign({textQuery:q,maxResultCount:6,languageCode:'nl'},
           bias?{locationBias:{circle:{center:bias,radius:30000}}}:{}))
       });
@@ -1552,6 +1591,7 @@ async function searchActPlaces(q){
       ACTRES=(js.places||[]).map(p=>({
         name:p.displayName&&p.displayName.text, addr:p.formattedAddress,
         lat:p.location&&p.location.latitude, lng:p.location&&p.location.longitude,
+        kind:p.primaryType,
         rating:p.rating, periods:p.regularOpeningHours&&p.regularOpeningHours.periods,
         photo:(p.photos&&p.photos[0])?'https://places.googleapis.com/v1/'+p.photos[0].name+'/media?maxWidthPx=240&key='+GMAPS_KEY:null
       })).filter(p=>p.name);
@@ -1572,10 +1612,20 @@ async function searchActPlaces(q){
     '<small>'+esc(p.addr||'')+'</small></button>').join('');
   el.classList.add('show');
 }
+function setDur(min){
+  const st=document.getElementById('f_time');
+  if(!st.value) st.value='09:00';
+  document.getElementById('f_aend').value=minToHm(hmToMin(st.value)+min);
+}
 function pickActPlace(i){
   const p=ACTRES[i]; if(!p) return;
   ACTPICK={lat:p.lat,lng:p.lng};
   ACTPHOTO=p.photo||null;
+  if(p.kind&&GTYPE_MAP[p.kind]){
+    pickedType=GTYPE_MAP[p.kind];
+    const tp=document.getElementById('actTypes');
+    if(tp) tp.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k===pickedType));
+  }
   document.getElementById('f_title').value=p.name;
   if(p.addr) document.getElementById('f_addr').value=p.addr;
   if(p.periods){
@@ -1595,11 +1645,12 @@ function sheetAct(id,day,pre){
   const selDay=a?a.day:day;
   const sel=days.map((d,i)=>'<option value="'+d+'" '+(selDay===d?'selected':'')+'>Dag '+(i+1)+' — '+fmtDagLang(d)+'</option>').join('');
   openSheet('<h2>'+(a?'Item bewerken':'Item toevoegen')+'</h2>'+
-    '<div class="field"><label>Type</label><div class="type-pick">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" onclick="pickType(\''+k+'\',this)">'+ic(v[0])+' '+v[1]+'</button>').join('')+'</div></div>'+
+    '<div class="field"><label>Type</label><div class="type-pick" id="actTypes">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" data-k="'+k+'" onclick="pickType(\''+k+'\',this)">'+ic(v[0])+' '+v[1]+'</button>').join('')+'</div></div>'+
     '<div class="field" style="position:relative"><label>Wat (zoek een plek of typ vrij)</label><input id="f_title" placeholder="Bijv. Neuschwanstein" autocomplete="off" oninput="actInput(this.value)" value="'+esc(a?a.title:(pre.title||''))+'"><div class="ac" id="actAc"></div></div>'+
     '<div class="row2"><div class="field"><label>Dag</label><select id="f_day">'+sel+'</select></div>'+
     '<div class="field"><label>Van</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'"></div>'+
     '<div class="field"><label>Tot</label><input id="f_aend" type="time" value="'+(a?(a.end||''):'')+'"></div></div>'+
+    '<div class="field"><label>Duur (vult automatisch "Tot" in)</label><div class="type-pick">'+[[30,'30 min'],[60,'1 uur'],[90,'1,5 uur'],[120,'2 uur'],[180,'3 uur'],[240,'4 uur'],[480,'hele dag']].map(x=>'<button onclick="setDur('+x[0]+')">'+x[1]+'</button>').join('')+'</div></div>'+
     '<div class="field"><label>Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
     '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:(pre.addr||''))+'"></div>'+
     '<div class="field"><label>Notitie (optioneel)</label><textarea id="f_note" rows="2">'+esc(a?a.note:'')+'</textarea></div>'+
