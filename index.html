@@ -9,6 +9,9 @@
 <meta name="theme-color" content="#2fbe8f">
 <meta name="referrer" content="no-referrer-when-downgrade">
 <title>TravAI — Reisplanner</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.0/dist/tabler-icons.min.css">
@@ -93,6 +96,8 @@
   #tabbar .tabb .ti{font-size:17px}
   #tabbar .tabb:hover{color:var(--ink)}
   #tabbar .tabb.on{background:var(--green-soft);color:var(--green-ink);box-shadow:inset 0 0 0 1px rgba(47,190,143,.25)}
+  #tabbar .tabb.iconly{padding:9px 11px}
+  #tabbar .tabb.iconly .ti{font-size:18px}
   #tabbar .spacer{flex:1}
   /* ===== split layout ===== */
   .split{display:flex;flex-direction:column}
@@ -697,9 +702,9 @@ function render(){
     if(SETTINGS.showLists) tabs.push(['lists','list-check','Lijsten']);
     tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+ic(x[1])+' '+x[2]+'</button>').join('')+
       '<span class="spacer"></span>'+
-      '<button class="tabb" onclick="sheetNotes()">'+ic('notes')+' Notities</button>'+
-      '<button class="tabb" onclick="sheetSettings()">'+ic('settings')+'</button>'+
-      (tab==='route'?'<button class="tabb" onclick="toggleMap()">'+ic('map')+' '+(mapOn?'Verberg':'Kaart')+'</button>':'');
+      '<button class="tabb iconly" title="Notities" onclick="sheetNotes()">'+ic('notes')+'</button>'+
+      '<button class="tabb iconly" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
+      (tab==='route'?'<button class="tabb iconly'+(mapOn?' on':'')+'" title="'+(mapOn?'Kaart verbergen':'Kaart tonen')+'" onclick="toggleMap()">'+ic('map')+'</button>':'');
     const note=edit?'':'<div class="viewer-note">Gedeelde reis — '+(myRole(cur)==='viewer'?'alleen-lezen':'jij kunt meebewerken')+'</div>';
     if(tab==='route'){
       m.innerHTML=note+'<div class="split">'+
