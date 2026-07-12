@@ -248,7 +248,7 @@
   .sch-dayhead b{font-size:14px}
   .sch-dayhead .addbtn{margin-left:auto;background:var(--green-soft);color:var(--green-ink);border:none;border-radius:99px;width:26px;height:26px;font-weight:800;cursor:pointer;font-size:13px}
   .sch-item{display:flex;align-items:center;gap:11px;padding:9px 14px 8px}
-  .sch-item .sic{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:21px;flex:none}
+  .sch-item .sic{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:19px;flex:none}
   .sch-item .ttl{flex:1;min-width:0;text-align:left;background:none;border:none;font:inherit;font-weight:700;font-size:15px;color:var(--ink);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0}
   .sch-item .grip{
     color:var(--muted);cursor:grab;touch-action:none;flex:none;
@@ -256,8 +256,8 @@
     user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
   }
   .sch-item .grip:active{cursor:grabbing;color:var(--green-dark)}
-  .sch-trav{display:flex;align-items:center;gap:10px;padding:3px 16px 3px 26px;font-size:13px;color:#5b6b7b;font-weight:700;font-variant-numeric:tabular-nums}
-  .sch-trav .ti{font-size:15px;color:var(--muted)}
+  .sch-trav{display:flex;align-items:center;gap:11px;padding:3px 14px;font-size:13px;color:#5b6b7b;font-weight:700;font-variant-numeric:tabular-nums}
+  .sch-trav .tic{width:32px;display:flex;align-items:center;justify-content:center;flex:none;font-size:19px;color:var(--muted)}
   .sch-trav .mid{flex:1;text-align:center;color:var(--muted)}
   .sch-none{padding:6px 14px 10px;font-size:12.5px;color:var(--muted);font-style:italic}
   .drag-ghost{position:fixed;z-index:900;opacity:.92;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.25);border-radius:12px;pointer-events:none;padding:6px 10px;font-weight:700}
@@ -1497,7 +1497,7 @@ function renderSchema(){
       if(idx>0){
         const tm=travModeOf(p);
         const click=edit&&(p.act||p.hotel)?' style="cursor:pointer" title="Tik om te wisselen: auto → te voet → fiets" onclick="cycleTrav(\''+(p.act?p.act.id:p.hotel.id)+'\',\''+(p.act?'act':'hotel')+'\')"':'';
-        h+='<div class="sch-trav" id="trs-'+d+'-'+idx+'"'+click+'>'+ic(TRAV_ICON[tm])+'<span class="t1">–:–</span><span class="mid">…</span><span class="t2">–:–</span></div>';
+        h+='<div class="sch-trav" id="trs-'+d+'-'+idx+'"'+click+'><span class="tic">'+ic(TRAV_ICON[tm])+'</span><span class="t1">–:–</span><span class="mid">…</span><span class="t2">–:–</span></div>';
       }
       const ph=p.phStop&&!p.hotel; /* placeholder-slaapplek: onopvallend tonen */
       h+='<div class="sch-item" data-day="'+d+'"'+(p.act?' data-act="'+p.act.id+'"':'')+(ph?' style="padding-top:4px;padding-bottom:4px"':'')+'>'+
@@ -1516,7 +1516,8 @@ async function computeSchema(){
   if(!cur) return;
   for(const d of daysOf(cur)){
     const pts=schemaPoints(d);
-    let cursor=null, dayKm=0, dayMin=0, hops=0;
+    let cursor=null, hops=0;
+    const tot={car:[0,0],foot:[0,0],bike:[0,0]};
     for(let i=1;i<pts.length;i++){
       const A=pts[i-1], B=pts[i];
       const el=document.getElementById('trs-'+d+'-'+i);
@@ -1524,7 +1525,7 @@ async function computeSchema(){
       const tm=travModeOf(B);
       const c=await osrm(A,B,tm);
       if(!cur||!(tab==='route'&&routeMode==='micro')) return;
-      dayKm+=c.km; dayMin+=c.min; hops++;
+      tot[tm][0]+=c.km; tot[tm][1]+=c.min; hops++;
       const tmin=Math.ceil(c.min);
       const bt=B.act?hmToMin(B.act.time):null;
       let dep = cursor!=null ? cursor : (bt!=null ? bt-tmin : hmToMin('09:00'));
@@ -1544,8 +1545,11 @@ async function computeSchema(){
         el2.querySelector('.t2').textContent=minToHm(arr);
       }
     }
-    const tot=document.getElementById('dtot-'+d);
-    if(tot&&hops) tot.textContent='· '+(Math.round(dayKm*10)/10)+' km · '+durTxt(dayMin)+' onderweg';
+    const totEl=document.getElementById('dtot-'+d);
+    if(totEl&&hops){
+      totEl.innerHTML=Object.entries(tot).filter(([k,v])=>v[0]>0.05)
+        .map(([k,v])=>ic(TRAV_ICON[k])+' '+(Math.round(v[0]*10)/10)+' km · '+durTxt(v[1])).join(' &nbsp; ');
+    }
   }
 }
 /* slepen met muis of vinger (via het grip-icoon) */
@@ -1718,13 +1722,18 @@ function dayGotoToday(){
 async function computeDayTotal(){
   const el=document.getElementById('dv-tot'); if(!el||!cur||!dayView) return;
   const pts=dayPoints(dayView);
-  let km=0, min=0, hops=0;
+  const tot={car:[0,0],foot:[0,0],bike:[0,0]};
+  let hops=0;
   for(let i=1;i<pts.length;i++){
-    const c=await osrm(pts[i-1],pts[i],travModeOf(pts[i]));
-    km+=c.km; min+=c.min; hops++;
+    const tm=travModeOf(pts[i]);
+    const c=await osrm(pts[i-1],pts[i],tm);
+    tot[tm][0]+=c.km; tot[tm][1]+=c.min; hops++;
   }
   const el2=document.getElementById('dv-tot');
-  if(el2&&hops) el2.innerHTML=ic('route')+' Onderweg vandaag: '+(Math.round(km*10)/10)+' km · '+durTxt(min);
+  if(el2&&hops){
+    el2.innerHTML='Onderweg: '+Object.entries(tot).filter(([k,v])=>v[0]>0.05)
+      .map(([k,v])=>ic(TRAV_ICON[k])+' '+(Math.round(v[0]*10)/10)+' km · '+durTxt(v[1])).join(' &nbsp; ');
+  }
 }
 async function computeDayLeg(){
   const el=document.getElementById('dv-leg'); if(!el||!cur) return;
