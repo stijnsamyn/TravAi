@@ -1681,9 +1681,11 @@ async function computeSchema(){
       if(el2){
         const modeName=TRAV_NAME[tm]||tm;
         const unreal=(tm==='foot'&&c.km>25)||(tm==='bike'&&c.km>120);
+        const late=bt!=null&&fixed==null&&(dep+tmin)>bt+2; /* je haalt het geplande startuur niet */
         el2.querySelector('.t1').textContent=minToHm(dep);
         el2.querySelector('.mid').innerHTML=modeName+' · '+(Math.round(c.km*10)/10)+' km / '+durTxt(c.min)+(c.est?' ≈':'')+
-          (unreal?' <span style="color:var(--red)">· onrealistisch, tik voor auto</span>':'');
+          (unreal?' <span style="color:var(--red)">· onrealistisch, tik voor auto</span>':'')+
+          (late?' <span style="color:var(--red)">· te krap: echte aankomst ± '+minToHm(dep+tmin)+'</span>':'');
         el2.querySelector('.t2').textContent=minToHm(arr);
       }
     }
@@ -1905,13 +1907,14 @@ async function computeDepartures(){
     if(!target||a.lat==null||!a.day) continue;
     const hot=sleepPointForDay(cur,addDays(a.day,-1))||sleepPointForDay(cur,a.day);
     if(!hot||hot.lat==null) continue;
-    const c=await osrm(hot,a,'car');
+    const tm=a.travMode||'car';
+    const c=await hopInfo(hot,a,tm);
     const el=document.getElementById('dep-'+a.id);
     if(!el) continue;
     const dep=hmToMin(target)-Math.ceil(c.min)-BUFFER_MIN;
-    el.innerHTML=ic('car')+' Vanaf '+esc(hot.name)+(hot.placeholder?' (nog geen hotel)':'')+': '+durTxt(c.min)+' rijden'+(c.est?' (≈)':'')+' → <b>vertrek uiterlijk '+minToHm(dep)+'</b>';
+    el.innerHTML=ic(TRAV_ICON[tm])+' Vanaf '+esc(hot.name)+(hot.placeholder?' (nog geen hotel)':'')+': '+durTxt(c.min)+' '+(tm==='foot'?'wandelen':tm==='bike'?'fietsen':'rijden')+(c.est?' (≈)':'')+' → <b>vertrek uiterlijk '+minToHm(dep)+'</b>';
     el.classList.add('show');
-    if(c.km<=6){
+    if(tm==='car'&&c.km<=6){
       const ft=await osrm(hot,a,'foot');
       const dep2=hmToMin(target)-Math.ceil(ft.min)-BUFFER_MIN;
       el.innerHTML+='<br>'+ic('walk')+' Of te voet: '+durTxt(ft.min)+' → vertrek '+minToHm(dep2);
@@ -1927,9 +1930,10 @@ async function computeTravel(){
       const p=acts[i-1], a=acts[i];
       if(p.lat==null||a.lat==null) continue;
       const el=document.getElementById('trav-'+a.id); if(!el) continue;
-      const c=await osrm(p,a,'car');
-      let txt=ic('car')+' '+durTxt(c.min);
-      if(c.km<=6){ const f=await osrm(p,a,'foot'); txt+=' · '+ic('walk')+' '+durTxt(f.min); }
+      const tm=a.travMode||'car';
+      const c=await hopInfo(p,a,tm);
+      let txt=ic(TRAV_ICON[tm])+' '+durTxt(c.min);
+      if(tm==='car'&&c.km<=6){ const f=await osrm(p,a,'foot'); txt+=' · '+ic('walk')+' '+durTxt(f.min); }
       const el2=document.getElementById('trav-'+a.id);
       if(el2){ el2.innerHTML=txt+' · '+(Math.round(c.km*10)/10)+' km'; el2.style.display='block'; }
     }
@@ -2474,7 +2478,7 @@ async function sheetPlace(actId){
     if(p.websiteUri) h+='<div class="plc-line">'+ic('world')+'<a target="_blank" href="'+esc(p.websiteUri)+'">Website</a></div>';
     if(p.googleMapsUri) h+='<div class="plc-line">'+ic('brand-google')+'<a target="_blank" href="'+esc(p.googleMapsUri)+'">Bekijk op Google Maps (recensies, routes…)</a></div>';
     if(box()) box().innerHTML=h||'<p style="color:var(--muted);font-size:14px">Geen extra gegevens beschikbaar.</p>';
-  }catch(e){ if(box()) box().innerHTML='<p style="color:var(--muted);font-size:14px">Details laden mislukt. Werkt dit domein met je Google-key?</p>'; }
+  }catch(e){ if(box()) box().innerHTML='<p style="color:var(--muted);font-size:14px">Details laden mislukt. Controleer of de Google-key als website-beperking <b>https://stijnsamyn.github.io/*</b> heeft (zonder /TravAi-pad — telefoons sturen alleen de domeinnaam mee).</p>'; }
 }
 
 /* beste invoegpositie in de route (kleinste omweg) */
