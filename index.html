@@ -539,6 +539,21 @@ function hotelForDay(t,day){
   }
   return t.data.hotels.find(h=>h.cin&&h.cout&&h.cin<=day&&day<=h.cout)||null;
 }
+/* waar slaap je die nacht? Echt hotel, of anders een placeholder in het centrum van de bestemming */
+function sleepPointForDay(t,day){
+  const rs=stopRanges(t);
+  for(const r of rs){
+    if(r.stop.nights>0&&rangeDays(r).includes(day)){
+      const hs=hotelsForStop(t,r);
+      if(hs.length&&hs[0].lat!=null) return {lat:hs[0].lat,lng:hs[0].lng,name:hs[0].name,addr:hs[0].addr,hotel:hs[0],key:'h'+hs[0].id};
+      if(hs.length) return {name:hs[0].name,addr:hs[0].addr,hotel:hs[0],key:'h'+hs[0].id};
+      if(r.stop.lat!=null) return {lat:r.stop.lat,lng:r.stop.lng,name:'centrum '+r.stop.name,placeholder:true,stop:r.stop,key:'s'+r.stop.id};
+    }
+  }
+  const h=t.data.hotels.find(x=>x.cin&&x.cout&&x.cin<=day&&day<x.cout);
+  if(h&&h.lat!=null) return {lat:h.lat,lng:h.lng,name:h.name,addr:h.addr,hotel:h,key:'h'+h.id};
+  return null;
+}
 function sortActs(arr){ return [...arr].sort((a,b)=>(a.time||a.opens||'99').localeCompare(b.time||b.opens||'99')||((a.seq||0)-(b.seq||0))); }
 
 /* ================= DATA ================= */
@@ -611,7 +626,7 @@ function render(){
         (tab==='today'?renderToday():tab==='days'?renderDays():tab==='cal'?renderCal():tab==='budget'?renderBudget():renderLists())+'</div>';
       if(tab==='days'||tab==='today'){
         computeDepartures(); computeTravel(); computeWeather();
-        if(tab==='today'){ computeDayLeg(); mountDayMap(dayView); }
+        if(tab==='today'){ computeDayLeg(); mountDayMap(dayView); computeDayTotal(); }
         if(tab==='days'&&SCROLL_TODAY){
           SCROLL_TODAY=false;
           const td=new Date().toISOString().slice(0,10);
@@ -1327,7 +1342,7 @@ async function saveDepTime(stopId){
 function dayRouteUrl(d,acts){
   const pts=(acts||cur.data.acts.filter(a=>a.day===d)).filter(a=>a.lat!=null).map(a=>a.lat+','+a.lng);
   if(!pts.length) return null;
-  const hot=hotelForDay(cur,d)||hotelForDay(cur,addDays(d,-1));
+  const hot=sleepPointForDay(cur,addDays(d,-1))||sleepPointForDay(cur,d);
   let origin, route;
   if(hot&&hot.lat!=null){ origin=hot.lat+','+hot.lng; route=pts; }
   else if(pts.length>1){ origin=pts[0]; route=pts.slice(1); }
@@ -1392,9 +1407,9 @@ function buildActCards(acts,edit){
 function schemaPoints(d){
   const t=cur, days=daysOf(t), di=days.indexOf(d);
   const pts=[];
-  const prevHotel=hotelForDay(t,addDays(d,-1));
-  if(prevHotel){
-    pts.push({kind:'hotel',label:prevHotel.name,icon:'bed',lat:prevHotel.lat,lng:prevHotel.lng,hotel:prevHotel,color:SETTINGS.colHotel});
+  const prevSleep=sleepPointForDay(t,addDays(d,-1));
+  if(prevSleep){
+    pts.push({kind:'hotel',label:prevSleep.name+(prevSleep.placeholder?' (nog geen hotel)':''),icon:'bed',lat:prevSleep.lat,lng:prevSleep.lng,hotel:prevSleep.hotel,phStop:prevSleep.stop,key:prevSleep.key,color:prevSleep.placeholder?'#a0aab4':SETTINGS.colHotel});
   } else if(di===0&&t.data.stops.length){
     const s=t.data.stops[0];
     pts.push({kind:'start',label:s.name,icon:s.isHome?'home':'flag',lat:s.lat,lng:s.lng,stop:s,color:SETTINGS.colStart});
@@ -1403,9 +1418,30 @@ function schemaPoints(d){
     if(r&&r.stop.lat!=null) pts.push({kind:'start',label:r.stop.name,icon:'map-pin',lat:r.stop.lat,lng:r.stop.lng,stop:r.stop,color:SETTINGS.colStart});
   }
   sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:a.title,icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:SETTINGS.colAct}));
-  const ton=hotelForDay(t,d);
-  if(ton&&!(pts[0]&&pts[0].hotel===ton)) pts.push({kind:'hotel',label:ton.name,icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton,color:SETTINGS.colHotel});
+  const ton=sleepPointForDay(t,d);
+  if(ton&&!(pts[0]&&pts[0].key===ton.key)){
+    pts.push({kind:'hotel',label:ton.name+(ton.placeholder?' (nog geen hotel)':''),icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton.hotel,phStop:ton.stop,key:ton.key,color:ton.placeholder?'#a0aab4':SETTINGS.colHotel});
+  } else if(!ton){
+    /* reisdag zonder hotel op de bestemming (bv. thuis of tussenstop als eindpunt): toon de aankomststop als eindpunt */
+    const rsArr=stopRanges(t);
+    const idx=rsArr.findIndex(r=>r.from===d);
+    if(idx>0){
+      const s=rsArr[idx].stop;
+      if(s.lat!=null&&!(pts[0]&&pts[0].stop===s))
+        pts.push({kind:'end',label:s.name,icon:s.isHome?'home':'map-pin',lat:s.lat,lng:s.lng,stop:s,color:SETTINGS.colStart});
+    }
+  }
   return pts;
+}
+/* vervoermiddel van een verplaatsing binnen de dag (opgeslagen op het bestemmingspunt) */
+function travModeOf(p){ return (p&&p.act&&p.act.travMode)||(p&&p.hotel&&p.hotel.travMode)||'car'; }
+const TRAV_ICON={car:'car',foot:'walk',bike:'bike'};
+async function cycleTrav(id,kind){
+  const o=kind==='act'?cur.data.acts.find(x=>x.id===id):cur.data.hotels.find(x=>x.id===id);
+  if(!o||!canEdit(cur)) return;
+  const order=['car','foot','bike'];
+  o.travMode=order[(order.indexOf(o.travMode||'car')+1)%order.length];
+  await pushData(); render();
 }
 function renderSchema(){
   const t=cur, days=daysOf(t), edit=canEdit(t);
@@ -1413,13 +1449,18 @@ function renderSchema(){
   days.forEach((d,di)=>{
     const pts=schemaPoints(d);
     h+='<div class="sch-dayhead" data-day="'+d+'"><span class="dn">'+(di+1)+'</span><b>'+fmtDagLang(d)+'</b>'+
+       '<span id="dtot-'+d+'" style="font-size:12px;color:var(--muted);font-weight:700"></span>'+
        (edit?'<button class="addbtn" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>':'')+'</div>';
     if(!pts.length){ h+='<div class="sch-none" data-day="'+d+'">niets gepland'+(edit?' — sleep hier een activiteit naartoe':'')+'</div>'; return; }
     pts.forEach((p,idx)=>{
-      if(idx>0) h+='<div class="sch-trav" id="trs-'+d+'-'+idx+'">'+ic('car')+'<span class="t1">–:–</span><span class="mid">…</span><span class="t2">–:–</span></div>';
+      if(idx>0){
+        const tm=travModeOf(p);
+        const click=edit&&(p.act||p.hotel)?' style="cursor:pointer" title="Tik om te wisselen: auto → te voet → fiets" onclick="cycleTrav(\''+(p.act?p.act.id:p.hotel.id)+'\',\''+(p.act?'act':'hotel')+'\')"':'';
+        h+='<div class="sch-trav" id="trs-'+d+'-'+idx+'"'+click+'>'+ic(TRAV_ICON[tm])+'<span class="t1">–:–</span><span class="mid">…</span><span class="t2">–:–</span></div>';
+      }
       h+='<div class="sch-item" data-day="'+d+'"'+(p.act?' data-act="'+p.act.id+'"':'')+'>'+
         '<span class="sic" style="color:'+p.color+'">'+ic(p.icon)+'</span>'+
-        '<button class="ttl" '+(p.act?'onclick="sheetAct(\''+p.act.id+'\')"':(p.hotel?'onclick="sheetHotel(\''+p.hotel.id+'\')"':(p.stop?'onclick="sheetStop(\''+p.stop.id+'\')"':'')))+'>'+esc(p.label)+'</button>'+
+        '<button class="ttl" '+(p.act?'onclick="sheetAct(\''+p.act.id+'\')"':(p.hotel?'onclick="sheetHotel(\''+p.hotel.id+'\')"':(p.phStop?'onclick="sheetHotel(null,\''+p.phStop.id+'\')"':(p.stop?'onclick="sheetStop(\''+p.stop.id+'\')"':''))))+'>'+esc(p.label)+'</button>'+
         (edit&&p.act?'<span class="grip" onpointerdown="gripDown(event,\''+p.act.id+'\')">'+ic('grip-vertical')+'</span>':'')+
       '</div>';
     });
@@ -1432,13 +1473,15 @@ async function computeSchema(){
   if(!cur) return;
   for(const d of daysOf(cur)){
     const pts=schemaPoints(d);
-    let cursor=null;
+    let cursor=null, dayKm=0, dayMin=0, hops=0;
     for(let i=1;i<pts.length;i++){
       const A=pts[i-1], B=pts[i];
       const el=document.getElementById('trs-'+d+'-'+i);
       if(A.lat==null||B.lat==null){ if(el) el.querySelector('.mid').textContent='locatie onbekend'; continue; }
-      const c=await osrm(A,B,'car');
+      const tm=travModeOf(B);
+      const c=await osrm(A,B,tm);
       if(!cur||!((tab==='days'&&daysMode==='schema')||(tab==='route'&&routeMode==='micro'))) return;
+      dayKm+=c.km; dayMin+=c.min; hops++;
       const tmin=Math.ceil(c.min);
       const bt=B.act?hmToMin(B.act.time):null;
       let dep = cursor!=null ? cursor : (bt!=null ? bt-tmin : hmToMin('09:00'));
@@ -1455,6 +1498,8 @@ async function computeSchema(){
         el2.querySelector('.t2').textContent=minToHm(arr);
       }
     }
+    const tot=document.getElementById('dtot-'+d);
+    if(tot&&hops) tot.textContent='· '+(Math.round(dayKm*10)/10)+' km · '+durTxt(dayMin)+' onderweg';
   }
 }
 /* slepen met muis of vinger (via het grip-icoon) */
@@ -1525,7 +1570,7 @@ function renderToday(){
   const rs=stopRanges(t);
   const rsToday=rs.filter(r=>rangeDays(r).includes(d));
   const where=rsToday.map(r=>r.stop.name).join(' → ');
-  const hot=hotelForDay(t,d);
+  const hot=sleepPointForDay(t,d);
   const acts=sortActs(t.data.acts.filter(a=>a.day===d));
   const rurl=dayRouteUrl(d,acts);
   let h='<div class="seg" style="margin-bottom:12px">'+
@@ -1540,8 +1585,11 @@ function renderToday(){
     (d===today?'<span class="badge soon">vandaag</span>':'')+
     '</div>'+
     (where?'<div style="margin-top:8px;font-size:14px;font-weight:600">'+ic('map-pin')+' '+esc(where)+'</div>':'')+
-    (hot?'<div style="margin-top:6px;font-size:14px;font-weight:600">'+ic('bed')+' '+esc(hot.name)+(hot.addr?' <span style="color:var(--muted);font-weight:500">· '+esc(hot.addr)+'</span>':'')+'</div>':'')+
+    (hot?'<div style="margin-top:6px;font-size:14px;font-weight:600">'+ic('bed')+' '+esc(hot.name)+
+      (hot.placeholder?' <span style="color:var(--muted);font-weight:500">(nog geen hotel)</span>'+(edit&&hot.stop?' <button class="maplink" style="border:none;cursor:pointer" onclick="sheetHotel(null,\''+hot.stop.id+'\')">'+ic('plus')+' hotel kiezen</button>':''):
+        (hot.addr?' <span style="color:var(--muted);font-weight:500">· '+esc(hot.addr)+'</span>':''))+'</div>':'')+
     '<div style="margin-top:6px;font-size:13px;color:var(--muted);font-weight:600">'+ic('target')+' '+acts.length+' activiteit'+(acts.length===1?'':'en')+' gepland</div>'+
+    '<div id="dv-tot" style="margin-top:6px;font-size:13px;color:var(--muted);font-weight:600"></div>'+
     (rurl?'<a class="maplink" target="_blank" href="'+rurl+'">'+ic('navigation')+' Dagroute in Google Maps</a>':'')+
     '</div>';
   /* reis-etappe die vandaag start */
@@ -1562,14 +1610,10 @@ function renderToday(){
   if(edit) h+='<button class="fab" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>';
   return h;
 }
-/* dagkaart: slaapplek en activiteiten van die dag, met wandel-/autoroute ertussen */
+/* dagkaart: vertrekpunt/slaapplek, activiteiten en eindpunt van die dag, met route ertussen */
 let DMAP=null;
 function dayPoints(d){
-  const pts=[];
-  const hot=hotelForDay(cur,d)||hotelForDay(cur,addDays(d,-1));
-  if(hot&&hot.lat!=null) pts.push({lat:hot.lat,lng:hot.lng,label:hot.name,kind:'bed',hotel:hot});
-  sortActs(cur.data.acts.filter(a=>a.day===d&&a.lat!=null)).forEach(a=>pts.push({lat:a.lat,lng:a.lng,label:a.title,kind:'act',act:a}));
-  return pts;
+  return schemaPoints(d).filter(p=>p.lat!=null);
 }
 function mountDayMap(d){
   const el=document.getElementById('dmap'); if(!el) return;
@@ -1579,10 +1623,15 @@ function mountDayMap(d){
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(DMAP);
   let n=0;
   pts.forEach(p=>{
-    const html=p.kind==='bed'?'<div class="mpin bed">'+ic('bed')+'</div>':'<div class="apin" style="width:30px;height:30px">'+(++n)+'</div>';
+    let html;
+    if(p.kind==='hotel') html='<div class="mpin bed">'+ic('bed')+'</div>';
+    else if(p.kind==='start'||p.kind==='end') html='<div class="mpin" style="color:'+SETTINGS.colStart+';font-size:16px">'+ic(p.icon)+'</div>';
+    else html='<div class="apin" style="width:30px;height:30px">'+(++n)+'</div>';
     const mk=L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html,iconSize:[32,32],iconAnchor:[16,16]}),title:p.label}).addTo(DMAP);
     if(p.act) mk.on('click',()=>sheetPlace(p.act.id));
-    else mk.bindPopup('<b>'+esc(p.label)+'</b>'+(p.hotel&&canEdit(cur)?'<br><button class="pop-btn" title="Bewerken" onclick="sheetHotel(\''+p.hotel.id+'\')">'+ic('pencil')+'</button>':''));
+    else mk.bindPopup('<b>'+esc(p.label)+'</b>'+
+      (canEdit(cur)?(p.hotel?'<br><button class="pop-btn" title="Bewerken" onclick="sheetHotel(\''+p.hotel.id+'\')">'+ic('pencil')+'</button>':
+        (p.phStop?'<br><button class="pop-btn" title="Hotel kiezen" onclick="sheetHotel(null,\''+p.phStop.id+'\')">'+ic('plus')+'</button>':'')):''));
   });
   DMAP.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])).pad(0.3));
   drawDayRoutes(pts);
@@ -1590,10 +1639,12 @@ function mountDayMap(d){
 async function drawDayRoutes(pts){
   for(let i=1;i<pts.length;i++){
     const a=pts[i-1], b=pts[i];
-    const foot=havKm(a,b)<=8; /* korte afstand: wandelroute, anders autoroute */
-    const c=await osrm(a,b,foot?'foot':'car');
+    const tm=travModeOf(b);
+    const prof=tm!=='car'?tm:(havKm(a,b)<=8?'foot':'car'); /* korte afstand standaard te voet */
+    const c=await osrm(a,b,prof);
     if(!DMAP) return;
-    if(c.geometry) L.geoJSON(c.geometry,{style:{color:foot?'#1e9e74':'#e8467c',weight:3,opacity:.8,dashArray:foot?'2 7':null}}).addTo(DMAP);
+    const col=prof==='foot'?'#1e9e74':prof==='bike'?'#2f9e44':'#e8467c';
+    if(c.geometry) L.geoJSON(c.geometry,{style:{color:col,weight:3,opacity:.8,dashArray:prof==='car'?null:'2 7'}}).addTo(DMAP);
     else L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:'#8296a8',weight:2,dashArray:'6 6'}).addTo(DMAP);
   }
 }
@@ -1605,6 +1656,18 @@ function dayShift(n){
 function dayGotoToday(){
   const days=daysOf(cur); const td=new Date().toISOString().slice(0,10);
   dayView=days.includes(td)?td:days[0]; render();
+}
+/* dagtotaal (km + reistijd) voor de Vandaag-pagina */
+async function computeDayTotal(){
+  const el=document.getElementById('dv-tot'); if(!el||!cur||!dayView) return;
+  const pts=dayPoints(dayView);
+  let km=0, min=0, hops=0;
+  for(let i=1;i<pts.length;i++){
+    const c=await osrm(pts[i-1],pts[i],travModeOf(pts[i]));
+    km+=c.km; min+=c.min; hops++;
+  }
+  const el2=document.getElementById('dv-tot');
+  if(el2&&hops) el2.innerHTML=ic('route')+' Onderweg vandaag: '+(Math.round(km*10)/10)+' km · '+durTxt(min);
 }
 async function computeDayLeg(){
   const el=document.getElementById('dv-leg'); if(!el||!cur) return;
@@ -1629,13 +1692,13 @@ async function computeDepartures(){
   for(const a of cur.data.acts){
     const target=a.opens||a.time;
     if(!target||a.lat==null||!a.day) continue;
-    const hot=hotelForDay(cur,a.day)||hotelForDay(cur,addDays(a.day,-1));
+    const hot=sleepPointForDay(cur,addDays(a.day,-1))||sleepPointForDay(cur,a.day);
     if(!hot||hot.lat==null) continue;
     const c=await osrm(hot,a,'car');
     const el=document.getElementById('dep-'+a.id);
     if(!el) continue;
     const dep=hmToMin(target)-Math.ceil(c.min)-BUFFER_MIN;
-    el.innerHTML=ic('car')+' Vanaf '+esc(hot.name)+': '+durTxt(c.min)+' rijden'+(c.est?' (≈)':'')+' → <b>vertrek uiterlijk '+minToHm(dep)+'</b>';
+    el.innerHTML=ic('car')+' Vanaf '+esc(hot.name)+(hot.placeholder?' (nog geen hotel)':'')+': '+durTxt(c.min)+' rijden'+(c.est?' (≈)':'')+' → <b>vertrek uiterlijk '+minToHm(dep)+'</b>';
     el.classList.add('show');
     if(c.km<=6){
       const ft=await osrm(hot,a,'foot');
