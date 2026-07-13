@@ -111,7 +111,7 @@
   .mapcats .chip.on{background:var(--green);color:#fff}
   .mapcats .chip.on .ti{color:#fff}
   .mappane.off{display:none}
-  .mapctl{position:absolute;bottom:12px;left:12px;z-index:610;display:flex;gap:6px;align-items:center}
+  .mapctl{position:fixed;bottom:20px;left:20px;z-index:700;display:flex;gap:6px;align-items:center}
   .mapstyles{display:flex;background:#fff;border-radius:99px;box-shadow:0 2px 8px rgba(0,0,0,.22);padding:3px;gap:2px}
   .mapstyles button{
     border:none;background:transparent;font-size:12px;font-weight:700;padding:6px 11px;
@@ -129,7 +129,7 @@
   .listpane{flex:1;padding:14px 14px 90px;max-width:760px;width:100%;margin:0 auto}
   @media(min-width:900px){
     .split{flex-direction:row-reverse;align-items:flex-start}
-    .mappane{flex:1;height:calc(100vh - 118px - env(safe-area-inset-top));position:sticky;top:calc(118px + env(safe-area-inset-top))}
+    .mappane{flex:1;height:calc(100vh - var(--top-offset,118px) - env(safe-area-inset-top));position:sticky;top:calc(var(--top-offset,118px) + env(safe-area-inset-top))}
     .listpane{width:46%;max-width:640px;flex:none;margin:0}
   }
   .plainwrap{max-width:760px;margin:0 auto;padding:16px 14px 90px}
@@ -766,18 +766,16 @@ function render(){
       '<button class="pill'+(tab==='diary'?' on':'')+'" onclick="setTab(\'diary\')">'+ic('book')+' Dagboek</button>'+
       '<span class="avatars" id="avatars"></span>'+
       '<button class="pill" title="'+pl+' van '+tot+' nachten gepland" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+'</button>'+
+      (edit?'<button class="lockbtn'+(cur.data.locked?' on':'')+'" title="'+(cur.data.locked?'Vastgezet: bestemmingen en nachten zijn vergrendeld — tik om te ontgrendelen':'Zet bestemmingen en nachten vast')+'" onclick="toggleLock()">'+ic(cur.data.locked?'lock':'lock-open')+'</button>':'')+
       '<button class="hbtn" title="Notities" onclick="sheetNotes()">'+ic('notes')+'</button>'+
       '<button class="hbtn" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
       '<button class="hbtn share-btn" title="Delen" onclick="sheetShare()">'+ic('share')+'</button>';
     const tabs=[];
     if(SETTINGS.showBudget) tabs.push(['budget','wallet','Budget']);
     if(SETTINGS.showLists) tabs.push(['lists','list-check','Lijsten']);
-    const showMapChip=(tab==='route'&&!mapOn);
-    if(tabs.length||showMapChip){
+    if(tabs.length){
       tabbar.style.display='flex';
-      tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+ic(x[1])+' '+x[2]+'</button>').join('')+
-        '<span class="spacer"></span>'+
-        (showMapChip?'<button class="tabb iconly" title="Kaart tonen" onclick="toggleMap()">'+ic('eye')+'</button>':'');
+      tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+ic(x[1])+' '+x[2]+'</button>').join('');
     } else {
       tabbar.style.display='none';
       tabbar.innerHTML='';
@@ -785,13 +783,12 @@ function render(){
     const note=edit?'':'<div class="viewer-note">Gedeelde reis — '+(myRole(cur)==='viewer'?'alleen-lezen':'jij kunt meebewerken')+'</div>';
     if(tab==='route'){
       m.innerHTML=note+'<div class="split">'+
-        '<div class="mappane'+(mapOn?'':' off')+'"><div id="map"></div><div class="mapcats" id="mapcats"></div>'+
-          '<div class="mapctl">'+
-            '<div class="mapstyles">'+
-              Object.entries(TILES).map(([k,v])=>'<button data-s="'+k+'" title="'+v.lbl+'" onclick="setMapStyle(\''+k+'\')" class="'+(SETTINGS.mapStyle===k?'on':'')+'">'+ic(v.icon)+' '+v.lbl+'</button>').join('')+
-            '</div>'+
-            '<button class="mapoff" title="Kaart verbergen" onclick="toggleMap()">'+ic('eye-off')+'</button>'+
-          '</div>'+
+        '<div class="mappane'+(mapOn?'':' off')+'"><div id="map"></div><div class="mapcats" id="mapcats"></div></div>'+
+        '<div class="mapctl">'+
+          (mapOn?'<div class="mapstyles">'+
+            Object.entries(TILES).map(([k,v])=>'<button data-s="'+k+'" title="'+v.lbl+'" onclick="setMapStyle(\''+k+'\')" class="'+(SETTINGS.mapStyle===k?'on':'')+'">'+ic(v.icon)+' '+v.lbl+'</button>').join('')+
+          '</div>':'')+
+          '<button class="mapoff" title="'+(mapOn?'Kaart verbergen':'Kaart tonen')+'" onclick="toggleMap()">'+ic(mapOn?'eye-off':'eye')+'</button>'+
         '</div>'+
         '<div class="listpane">'+renderRoute()+'</div></div>';
       if(mapOn) mountMap();
@@ -811,6 +808,7 @@ function render(){
     }
     loadMembers();
   }
+  requestAnimationFrame(updateTopOffset);
 }
 function setTab(x){
   tab=x;
@@ -818,6 +816,12 @@ function setTab(x){
   if(x==='diary') diaryMode='list'; /* dagboek opent altijd op de lijst */
   render(); window.scrollTo(0,0);
 }
+function updateTopOffset(){
+  const hh=hdr?hdr.offsetHeight:60;
+  const th=(tabbar&&tabbar.style.display!=='none')?tabbar.offsetHeight:0;
+  document.documentElement.style.setProperty('--top-offset',(hh+th)+'px');
+}
+window.addEventListener('resize',updateTopOffset);
 function goHome(){ view='home'; cur=null; if(MAP){MAP.remove();MAP=null;} render(); }
 function openTrip(id){ cur=trips.find(x=>x.id===id); view='trip'; tab='route'; routeMode=(cur&&cur.data.locked)?'micro':'macro'; dayView=null; diaryMode=null; MAPVIEW=null; CATACTIVE=null; CATRES=[]; mapOn=window.innerWidth>=600; render(); window.scrollTo(0,0); reflowTimes(); }
 function toggleMap(){ mapOn=!mapOn; render(); }
@@ -987,11 +991,7 @@ function tripCard(t){
 /* ================= ROUTE-TAB ================= */
 function renderRoute(){
   const t=cur, edit=canEdit(t), rs=stopRanges(t);
-  const tot=totNights(t), pl=plannedNights(t), pct=tot?Math.min(100,Math.round(pl/tot*100)):0;
-  let h='<div class="nights-head"><div class="bigdonut" style="--p:'+pct+'%" data-t="'+pl+'/'+tot+'"></div><div class="lbl">nachten gepland</div>'+
-    (edit?'<button class="lockbtn'+(t.data.locked?' on':'')+'" style="margin-left:auto" onclick="toggleLock()" title="'+(t.data.locked?'Vastgezet: bestemmingen en nachten zijn vergrendeld — tik om te ontgrendelen':'Zet bestemmingen en nachten vast')+'">'+ic(t.data.locked?'lock':'lock-open')+'</button>':'')+
-    '</div>'+
-    '<div class="tripstats" id="tripstats"></div>'+
+  let h='<div class="tripstats" id="tripstats"></div>'+
     '<div class="seg"><button class="'+(routeMode==='macro'?'on':'')+'" onclick="routeMode=\'macro\';render()">'+ic('map-pin')+' Bestemmingen</button>'+
     '<button class="'+(routeMode==='micro'?'on':'')+'" onclick="routeMode=\'micro\';render()">'+ic('timeline')+' Lijst</button></div>';
   if(routeMode==='micro') return h+renderSchema();
