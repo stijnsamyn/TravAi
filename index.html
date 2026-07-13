@@ -1271,7 +1271,8 @@ async function delStop(id){
 function mountMap(){
   const el=document.getElementById('map'); if(!el) return;
   if(MAP){ MAP.remove(); MAP=null; }
-  MAP=L.map('map',{zoomControl:true});
+  MAP=L.map('map',{zoomControl:false});
+  L.control.zoom({position:'topright'}).addTo(MAP);
   TILELAYER=null;
   applyMapStyle();
   ROUTELAYER=L.layerGroup().addTo(MAP);
