@@ -66,15 +66,15 @@
     border-radius:99px;padding:8px 14px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;
   }
   .pill .ti{font-size:15px;color:var(--green-dark)}
+  .pill.on{background:var(--green-soft);color:var(--green-ink);border-color:transparent}
+  .pill.on .ti{color:var(--green-ink)}
   .donut{width:20px;height:20px;border-radius:50%;flex:none;position:relative;background:conic-gradient(var(--green) var(--p,0%), #e6ecf0 0)}
   .donut::after{content:'';position:absolute;inset:4px;border-radius:50%;background:#fff}
-  .btn-share{
-    background:linear-gradient(135deg,var(--green),var(--green-dark));color:#fff;border:none;border-radius:99px;
-    padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(47,190,143,.4);
-    display:inline-flex;align-items:center;gap:7px;transition:filter .15s,transform .1s;
+  .hbtn.share-btn{
+    background:linear-gradient(135deg,var(--green),var(--green-dark));color:#fff;border:none;
+    box-shadow:0 2px 8px rgba(47,190,143,.35);
   }
-  .btn-share:hover{filter:brightness(1.05)}
-  .btn-share:active{transform:scale(.96)}
+  .hbtn.share-btn:hover{filter:brightness(1.05);color:#fff;background:linear-gradient(135deg,var(--green),var(--green-dark))}
   .avatars{display:flex;align-items:center}
   .avatars .av{
     width:30px;height:30px;border-radius:50%;background:var(--green-soft);color:var(--green-ink);
@@ -723,27 +723,26 @@ function render(){
   if(view==='trip'){
     if(!cur){ view='home'; return render(); }
     const edit=canEdit(cur);
-    const tot=totNights(cur), pl=plannedNights(cur), pct=tot?Math.min(100,Math.round(pl/tot*100)):0;
-    hdr.innerHTML='<button class="hbtn" onclick="goHome()">'+ic('chevron-left')+'</button>'+
-      '<div class="htitle"><span class="dot"></span><div style="min-width:0"><h1>'+tripIcon(cur)+' '+esc(cur.name)+'</h1>'+
-      '<div class="sub">'+(cur.start_date?fmtD(cur.start_date)+' – '+fmtDY(cur.end_date):'nog geen datums')+'</div></div></div>'+
-      '<span class="avatars" id="avatars"></span>'+
-      (edit?'<button class="pill" onclick="sheetTrip(\''+cur.id+'\')">'+ic('calendar')+(cur.start_date?fmtD(cur.start_date)+' – '+fmtD(cur.end_date):'datums')+'</button>':'')+
-      '<button class="pill" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+' nachten</button>'+
-      '<button class="hbtn" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
-      '<button class="btn-share" onclick="sheetShare()">'+ic('share')+' Delen</button>';
-    tabbar.style.display='flex';
     if(['today','days','cal'].includes(tab)) tab='diary'; /* oude tabnamen opvangen */
     if((tab==='budget'&&!SETTINGS.showBudget)||(tab==='lists'&&!SETTINGS.showLists)) tab='route';
-    const tabs=[['route','route','Plan'],['diary','book','Dagboek']];
+    const tot=totNights(cur), pl=plannedNights(cur), pct=tot?Math.min(100,Math.round(pl/tot*100)):0;
+    hdr.innerHTML='<button class="hbtn" onclick="goHome()">'+ic('chevron-left')+'</button>'+
+      '<div class="htitle"'+(edit?' onclick="sheetTrip(\''+cur.id+'\')" style="cursor:pointer" title="Reis bewerken"':'')+'><span class="dot"></span><div style="min-width:0"><h1>'+tripIcon(cur)+' '+esc(cur.name)+'</h1>'+
+      '<div class="sub">'+(cur.start_date?fmtD(cur.start_date)+' – '+fmtDY(cur.end_date):'nog geen datums')+'</div></div></div>'+
+      '<span class="avatars" id="avatars"></span>'+
+      '<button class="pill'+(tab==='route'?' on':'')+'" onclick="setTab(\'route\')">'+ic('route')+' Plan</button>'+
+      '<button class="pill'+(tab==='diary'?' on':'')+'" onclick="setTab(\'diary\')">'+ic('book')+' Dagboek</button>'+
+      '<button class="pill" title="'+pl+' van '+tot+' nachten gepland" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+'</button>'+
+      '<button class="hbtn" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
+      '<button class="hbtn share-btn" title="Delen" onclick="sheetShare()">'+ic('share')+'</button>';
+    const tabs=[];
     if(SETTINGS.showBudget) tabs.push(['budget','wallet','Budget']);
     if(SETTINGS.showLists) tabs.push(['lists','list-check','Lijsten']);
-    tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+ic(x[1])+' '+x[2]+'</button>').join('')+
-      '<span class="spacer"></span>'+
-      (edit?'<button class="tabb iconly" title="Aanvullen of exporteren (.md)" onclick="sheetImport(\'merge\')">'+ic('file-import')+'</button>':'')+
-      '<button class="tabb iconly" title="Notities" onclick="sheetNotes()">'+ic('notes')+'</button>'+
-      '<button class="tabb iconly" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
+    const extras='<button class="tabb iconly" title="Notities" onclick="sheetNotes()">'+ic('notes')+'</button>'+
       (tab==='route'?'<button class="tabb iconly'+(mapOn?' on':'')+'" title="'+(mapOn?'Kaart verbergen':'Kaart tonen')+'" onclick="toggleMap()">'+ic('map')+'</button>':'');
+    tabbar.style.display='flex';
+    tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+ic(x[1])+' '+x[2]+'</button>').join('')+
+      '<span class="spacer"></span>'+extras;
     const note=edit?'':'<div class="viewer-note">Gedeelde reis — '+(myRole(cur)==='viewer'?'alleen-lezen':'jij kunt meebewerken')+'</div>';
     if(tab==='route'){
       m.innerHTML=note+'<div class="split">'+
@@ -785,7 +784,14 @@ function setToggle(id,label,checked,hint){
     '<input type="checkbox" id="'+id+'"'+(checked?' checked':'')+'></label>';
 }
 function sheetSettings(){
+  const inTrip=!!(cur&&view==='trip');
   openSheet('<h2>'+ic('settings')+' Instellingen</h2>'+
+
+    (inTrip&&canEdit(cur)?
+      setSec('map','Huidige reis')+
+      '<div class="btns" style="margin:0 0 4px"><button class="btn ghost" style="justify-content:flex-start" onclick="closeSheet();sheetImport(\'merge\')">'+ic('file-import')+' Importeren of exporteren (.md)</button></div>'+
+      '<p class="set-hint">Vul de reis aan met een AI-sjabloon of exporteer het huidige plan als tekst.</p>'
+    :'')+
 
     setSec('layout-list','Weergave')+
     setToggle('s_showbudget','Budget-tab tonen',SETTINGS.showBudget!==false,'Uitgaven bijhouden per reis')+
