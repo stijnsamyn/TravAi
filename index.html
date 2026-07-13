@@ -82,6 +82,13 @@
     border:2px solid #fff;margin-left:-8px;
   }
   .avatars .av:first-child{margin-left:0}
+  .hbtn.person-btn{position:relative}
+  .hbtn.person-btn .cnt{
+    position:absolute;top:-3px;right:-3px;background:var(--green);color:#fff;
+    font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:99px;padding:0 4px;
+    display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-sizing:content-box;
+  }
+  .hbtn.person-btn .cnt:empty{display:none}
   /* ===== tab bar ===== */
   #tabbar{
     background:rgba(255,255,255,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
@@ -111,19 +118,18 @@
   .mapcats .chip.on{background:var(--green);color:#fff}
   .mapcats .chip.on .ti{color:#fff}
   .mappane.off{display:none}
-  .mapctl{
-    position:fixed;bottom:18px;left:18px;z-index:700;
+  .maplayers{
+    position:absolute;bottom:14px;left:14px;z-index:610;
     display:flex;align-items:center;background:#fff;border-radius:99px;
     box-shadow:0 2px 10px rgba(0,0,0,.22);padding:3px;gap:2px;
   }
-  .mapctl button{
+  .maplayers button{
     width:34px;height:34px;border-radius:50%;border:none;background:transparent;
     color:var(--muted);font-size:15px;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
   }
-  .mapctl button:hover{color:var(--ink)}
-  .mapctl button.on{background:var(--green);color:#fff}
-  .mapctl .sep{width:1px;height:20px;background:var(--border);margin:0 3px}
+  .maplayers button:hover{color:var(--ink)}
+  .maplayers button.on{background:var(--green);color:#fff}
   #map{width:100%;height:100%}
   .listpane{flex:1;padding:14px 14px 90px;max-width:760px;width:100%;margin:0 auto}
   @media(min-width:900px){
@@ -562,7 +568,7 @@ function applyMapStyle(){
   const t=TILES[SETTINGS.mapStyle]||TILES.standard;
   TILELAYER=L.tileLayer(t.u,{attribution:t.a,maxZoom:19}).addTo(MAP);
   if(TILELAYER.bringToBack) TILELAYER.bringToBack();
-  document.querySelectorAll('.mapctl button[data-s]').forEach(b=>b.classList.toggle('on',b.dataset.s===(SETTINGS.mapStyle||'standard')));
+  document.querySelectorAll('.maplayers button[data-s]').forEach(b=>b.classList.toggle('on',b.dataset.s===(SETTINGS.mapStyle||'standard')));
 }
 function setMapStyle(s){
   SETTINGS.mapStyle=s;
@@ -758,14 +764,18 @@ function render(){
     if(['today','days','cal'].includes(tab)) tab='diary'; /* oude tabnamen opvangen */
     if((tab==='budget'&&!SETTINGS.showBudget)||(tab==='lists'&&!SETTINGS.showLists)) tab='route';
     const tot=totNights(cur), pl=plannedNights(cur), pct=tot?Math.min(100,Math.round(pl/tot*100)):0;
+    const lv=lockLevel(cur), lockInfo=LOCK_INFO[lv];
     hdr.innerHTML='<button class="hbtn" onclick="goHome()">'+ic('chevron-left')+'</button>'+
-      '<div class="htitle"'+(edit?' onclick="sheetTrip(\''+cur.id+'\')" style="cursor:pointer" title="Reis bewerken"':'')+'><span class="dot"></span><div style="min-width:0"><h1>'+tripIcon(cur)+' '+esc(cur.name)+'</h1>'+
+      '<div class="htitle"'+(edit?' onclick="sheetTrip(\''+cur.id+'\')" style="cursor:pointer" title="Reis bewerken"':'')+'><span class="dot"></span><div style="min-width:0"><h1>'+esc(cur.name)+'</h1>'+
       '<div class="sub">'+(cur.start_date?fmtD(cur.start_date)+' – '+fmtDY(cur.end_date):'nog geen datums')+'</div></div></div>'+
+      (edit?'<button class="lockbtn'+(lv?' on':'')+'" title="'+esc(lockInfo.lbl+' — '+lockInfo.hint)+'" onclick="cycleLock()">'+ic(lockInfo.icon)+'</button>':'')+
+      '<span style="flex:1"></span>'+
       '<button class="pill'+(tab==='route'?' on':'')+'" onclick="setTab(\'route\')">'+ic('route')+' Plan</button>'+
       '<button class="pill'+(tab==='diary'?' on':'')+'" onclick="setTab(\'diary\')">'+ic('book')+' Dagboek</button>'+
-      '<span class="avatars" id="avatars"></span>'+
+      '<span style="flex:1"></span>'+
       '<button class="pill" title="'+pl+' van '+tot+' nachten gepland" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+'</button>'+
-      (edit?(function(){const lv=lockLevel(cur),info=LOCK_INFO[lv];return '<button class="lockbtn'+(lv?' on':'')+'" title="'+esc(info.lbl+' — '+info.hint)+'" onclick="cycleLock()">'+ic(info.icon)+'</button>';})():'')+
+      '<button class="hbtn person-btn" id="avatars" title="Reisgenoten" onclick="sheetShare()">'+ic('users')+'<span class="cnt"></span></button>'+
+      '<button class="hbtn" title="'+(mapOn?'Kaart verbergen':'Kaart tonen')+'" onclick="toggleMap()">'+ic(mapOn?'eye-off':'eye')+'</button>'+
       '<button class="hbtn" title="Notities" onclick="sheetNotes()">'+ic('notes')+'</button>'+
       '<button class="hbtn" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
       '<button class="hbtn share-btn" title="Delen" onclick="sheetShare()">'+ic('share')+'</button>';
@@ -782,13 +792,10 @@ function render(){
     const note=edit?'':'<div class="viewer-note">Gedeelde reis — '+(myRole(cur)==='viewer'?'alleen-lezen':'jij kunt meebewerken')+'</div>';
     if(tab==='route'){
       m.innerHTML=note+'<div class="split">'+
-        '<div class="mappane'+(mapOn?'':' off')+'"><div id="map"></div><div class="mapcats" id="mapcats"></div></div>'+
-        '<div class="mapctl">'+
-          (mapOn?
+        '<div class="mappane'+(mapOn?'':' off')+'"><div id="map"></div><div class="mapcats" id="mapcats"></div>'+
+          '<div class="maplayers">'+
             Object.entries(TILES).map(([k,v])=>'<button data-s="'+k+'" title="'+v.lbl+'" onclick="setMapStyle(\''+k+'\')" class="'+(SETTINGS.mapStyle===k?'on':'')+'">'+ic(v.icon)+'</button>').join('')+
-            '<span class="sep"></span>'
-          :'')+
-          '<button title="'+(mapOn?'Kaart verbergen':'Kaart tonen')+'" onclick="toggleMap()">'+ic(mapOn?'eye-off':'eye')+'</button>'+
+          '</div>'+
         '</div>'+
         '<div class="listpane">'+renderRoute()+'</div></div>';
       if(mapOn) mountMap();
@@ -1026,7 +1033,7 @@ function renderRoute(){
         (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">'+ic('bed')+' '+esc(hotName(x))+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
           (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">'+ic('plus')+' slaapplek</button>':''))+
         (acts.length&&s.nights>0?'<button class="chip act" onclick="routeMode=\'micro\';render()">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
-        (edit&&r.from&&s.nights>0?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
+        (actsEditable(t)&&r.from&&s.nights>0?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
         (edit&&r.from&&s.nights>0&&!s.isHome&&SETTINGS.showAI!==false?'<button class="chip ai" id="ai-'+s.id+'" onclick="aiSuggest(\''+s.id+'\')">'+ic('sparkles')+' AI-voorstellen</button>':'')+
       '</div>'+
       '</div>'+
@@ -1156,7 +1163,7 @@ function renderStopDays(t,r,edit){
     const di=allDays.indexOf(d)+1;
     const acts=sortActs(t.data.acts.filter(a=>a.day===d));
     h+='<div class="dayrow"><div class="dayrow-head"><span class="dn">Dag '+di+'</span><span>'+fmtKort(d)+'</span>'+
-       (edit?'<button class="addbtn" title="Activiteit toevoegen op deze dag" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>':'')+'</div>';
+       (actsEditable(cur)?'<button class="addbtn" title="Activiteit toevoegen op deze dag" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>':'')+'</div>';
     if(!acts.length) h+='<div class="mini-none">nog niets gepland</div>';
     acts.forEach(a=>{
       const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
@@ -1685,7 +1692,7 @@ function renderDays(){
        '<span class="where" id="wx-'+d+'"></span>'+
        (where?'<span class="where">'+ic('map-pin')+' '+esc(where)+'</span>':'')+
        (rurl?'<a class="add" style="text-decoration:none;margin-left:auto" target="_blank" href="'+rurl+'" title="Dagroute in Google Maps">'+ic('navigation')+'</a>':'')+
-       (edit?'<button class="add" style="'+(rurl?'margin-left:6px':'margin-left:auto')+'" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+' item</button>':'')+'</div>';
+       (actsEditable(cur)?'<button class="add" style="'+(rurl?'margin-left:6px':'margin-left:auto')+'" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+' item</button>':'')+'</div>';
     h+=buildActCards(acts,edit);
   });
   return h;
@@ -1700,7 +1707,7 @@ function buildActCards(acts,edit){
     const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
     if(prev) h+='<div class="trav" id="trav-'+a.id+'"></div>';
     const overlap=prev&&a.time&&((prev.end&&a.time<prev.end)||(!prev.end&&prev.time&&prev.time===a.time));
-    h+='<div class="card'+(a.proposed?' proposed':'')+'" data-act="'+a.id+'">'+(edit?
+    h+='<div class="card'+(a.proposed?' proposed':'')+'" data-act="'+a.id+'">'+(actsEditable(cur)?
       '<button class="kebab" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':'')+
       '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+(a.end?'<div class="end">tot '+esc(a.end)+'</div>':'')+'</div><div class="body">'+
       '<h4>'+ic(icn)+' '+esc(actName(a))+'</h4>'+
@@ -1820,7 +1827,7 @@ function renderSchema(){
     h+='<div class="sch-dayhead" data-day="'+d+'"><span class="dn">'+(di+1)+'</span><b>'+fmtDagLang(d)+'</b>'+
        '<span id="dtot-'+d+'" style="font-size:12px;color:var(--muted);font-weight:700"></span>'+
        (edit?'<button class="addbtn" id="ap-'+d+'" style="margin-left:auto" title="Uren automatisch berekenen (reistijd, duur en openingsuren; vastgezette tijden blijven staan)" onclick="autoPlanDay(\''+d+'\')">'+ic('wand')+'</button>'+
-       '<button class="addbtn" style="margin-left:6px" title="Activiteit toevoegen" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>':'')+'</div>';
+       (actsEditable(cur)?'<button class="addbtn" style="margin-left:6px" title="Activiteit toevoegen" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>':''):'')+'</div>';
     if(!pts.length){ h+='<div class="sch-none" data-day="'+d+'">niets gepland'+(edit?' — sleep hier een activiteit naartoe':'')+'</div>'; return; }
     pts.forEach((p,idx)=>{
       if(idx>0){
@@ -2073,7 +2080,7 @@ function renderToday(){
   }
   h+='<div class="section-title">Programma</div>';
   h+=buildActCards(acts,edit);
-  if(edit) h+='<button class="fab" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>';
+  if(actsEditable(cur)) h+='<button class="fab" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>';
   return h;
 }
 /* dagkaart: vertrekpunt/slaapplek, activiteiten en eindpunt van die dag, met route ertussen */
@@ -2406,8 +2413,8 @@ async function loadMembers(){
   const el=document.getElementById('avatars');
   if(el){
     const emails=[user.email,...cur._members.filter(x=>x.email!==user.email).map(x=>x.email||'?')];
-    el.innerHTML=emails.slice(0,4).map(e=>'<span class="av" title="'+esc(e)+'">'+esc((e||'?').slice(0,2).toUpperCase())+'</span>').join('')+
-      (emails.length>4?'<span class="av">+'+(emails.length-4)+'</span>':'');
+    el.title='Reisgenoten: '+emails.join(', ');
+    const cnt=el.querySelector('.cnt'); if(cnt) cnt.textContent=emails.length>1?String(emails.length):'';
   }
 }
 function sheetShare(){
@@ -2991,7 +2998,7 @@ async function delAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); awa
 async function sheetPlace(actId){
   const a=cur.data.acts.find(x=>x.id===actId); if(!a) return;
   openSheet('<h2>'+ic('photo')+' <span style="flex:1;min-width:0">'+esc(actName(a))+'</span>'+
-    (canEdit(cur)?'<button class="hbtn" title="Bewerken" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':'')+'</h2>'+
+    (actsEditable(cur)?'<button class="hbtn" title="Bewerken" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':'')+'</h2>'+
     '<div id="plc" style="min-height:80px">Laden…</div>'+
     '<div class="btns">'+
     (a.lat!=null?'<button class="btn ghost" onclick="navTo('+a.lat+','+a.lng+',\''+esc(actName(a))+'\')">'+ic('navigation')+' Navigeer</button>':
