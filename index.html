@@ -760,10 +760,10 @@ function render(){
     if((tab==='budget'&&!SETTINGS.showBudget)||(tab==='lists'&&!SETTINGS.showLists)) tab='route';
     const tot=totNights(cur), pl=plannedNights(cur), pct=tot?Math.min(100,Math.round(pl/tot*100)):0;
     hdr.innerHTML='<button class="hbtn" onclick="goHome()">'+ic('chevron-left')+'</button>'+
-      '<button class="pill'+(tab==='route'?' on':'')+'" onclick="setTab(\'route\')">'+ic('route')+' Plan</button>'+
-      '<button class="pill'+(tab==='diary'?' on':'')+'" onclick="setTab(\'diary\')">'+ic('book')+' Dagboek</button>'+
       '<div class="htitle"'+(edit?' onclick="sheetTrip(\''+cur.id+'\')" style="cursor:pointer" title="Reis bewerken"':'')+'><span class="dot"></span><div style="min-width:0"><h1>'+tripIcon(cur)+' '+esc(cur.name)+'</h1>'+
       '<div class="sub">'+(cur.start_date?fmtD(cur.start_date)+' – '+fmtDY(cur.end_date):'nog geen datums')+'</div></div></div>'+
+      '<button class="pill'+(tab==='route'?' on':'')+'" onclick="setTab(\'route\')">'+ic('route')+' Plan</button>'+
+      '<button class="pill'+(tab==='diary'?' on':'')+'" onclick="setTab(\'diary\')">'+ic('book')+' Dagboek</button>'+
       '<span class="avatars" id="avatars"></span>'+
       '<button class="pill" title="'+pl+' van '+tot+' nachten gepland" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+'</button>'+
       '<button class="hbtn" title="Notities" onclick="sheetNotes()">'+ic('notes')+'</button>'+
