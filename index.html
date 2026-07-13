@@ -616,6 +616,7 @@ function norm(t){
   t.data=t.data||{};
   ['stops','acts','hotels','todos','pack','exps'].forEach(k=>{ if(!Array.isArray(t.data[k])) t.data[k]=[]; });
   t.data.stops.forEach(s=>{ if(typeof s.nights!=='number') s.nights=1; });
+  t.data.acts.forEach(a=>{ if(!a.dur){ const s=hmToMin(a.time),e=hmToMin(a.end); if(s!=null&&e!=null&&e>s) a.dur=e-s; } });
   if(typeof t.data.notes!=='string') t.data.notes='';
   return t;
 }
@@ -768,7 +769,7 @@ function setTab(x){
   render(); window.scrollTo(0,0);
 }
 function goHome(){ view='home'; cur=null; if(MAP){MAP.remove();MAP=null;} render(); }
-function openTrip(id){ cur=trips.find(x=>x.id===id); view='trip'; tab='route'; routeMode=(cur&&cur.data.locked)?'micro':'macro'; dayView=null; diaryMode=null; MAPVIEW=null; CATACTIVE=null; CATRES=[]; mapOn=window.innerWidth>=600; render(); window.scrollTo(0,0); }
+function openTrip(id){ cur=trips.find(x=>x.id===id); view='trip'; tab='route'; routeMode=(cur&&cur.data.locked)?'micro':'macro'; dayView=null; diaryMode=null; MAPVIEW=null; CATACTIVE=null; CATRES=[]; mapOn=window.innerWidth>=600; render(); window.scrollTo(0,0); reflowTimes(); }
 function toggleMap(){ mapOn=!mapOn; render(); }
 
 /* ================= INSTELLINGEN ================= */
@@ -1098,7 +1099,7 @@ async function moveAct(id,d){
   const days=daysOf(cur); const i=days.indexOf(a.day); const j=i+d;
   if(i<0||j<0||j>=days.length) return;
   a.day=days[j];
-  await pushData(); render();
+  await pushData(); render(); reflowTimes();
 }
 
 /* --- bestemming zoeken (Nominatim) --- */
@@ -1725,14 +1726,14 @@ async function saveHopMode(mode){
   tgt.travMode=mode;
   await pushData();
   sheetHop(HOPCTX.d,HOPCTX.idx);
-  render();
+  render(); reflowTimes();
 }
 async function saveHopDep(){
   if(!HOPCTX) return;
   const pts=schemaPoints(HOPCTX.d); const B=pts[HOPCTX.idx]; const tgt=B&&(B.act||B.hotel||B.stop);
   if(!tgt) return;
   tgt.depTime=document.getElementById('f_hopdep').value;
-  await pushData(); render(); fillHopInfo();
+  await pushData(); render(); fillHopInfo(); reflowTimes();
 }
 function renderSchema(){
   const t=cur, days=daysOf(t), edit=canEdit(t);
@@ -1763,38 +1764,60 @@ function renderSchema(){
   h+='</div>';
   return h;
 }
-/* uren van een dag automatisch invullen: reistijd + duur + openingsuur; vastgezette tijden blijven staan */
-async function autoPlanDay(d){
-  if(!canEdit(cur)) return;
+/* ==== automatische tijdplanning ====
+   Basis van elke activiteit is de DUUR. Aankomst (Van) en vertrek (Tot) worden automatisch
+   doorgerekend vanuit voorgaande activiteiten en verplaatsingen. Alleen vastgezette
+   activiteiten (slotje) behouden hun eigen tijden en dienen als anker. */
+function actDur(a){
+  if(a.dur>0) return a.dur;
+  const s=hmToMin(a.time), e=hmToMin(a.end);
+  return (s!=null&&e!=null&&e>s)?e-s:60;
+}
+async function reflowDay(d){
   const pts=schemaPoints(d);
-  if(pts.length<2){ alert('Niets te plannen op deze dag.'); return; }
-  const el=document.getElementById('ap-'+d); if(el) el.innerHTML=ic('clock-play');
-  /* start van de keten: etappe-vertrektijd of 09:00 */
+  if(pts.length<2) return false;
   let cursor=null;
   const rsAll=stopRanges(cur);
   const legIdx=rsAll.findIndex(r=>r.from===d);
   if(legIdx>0&&rsAll[legIdx].stop.depTime) cursor=hmToMin(rsAll[legIdx].stop.depTime);
   if(cursor==null) cursor=hmToMin('09:00');
-  let prev=pts[0];
+  let prev=pts[0], changed=false;
   for(const p of pts.slice(1)){
     if(!p.act){ prev=p; continue; }
     const a=p.act;
     let travel=0;
     if(prev.lat!=null&&p.lat!=null){ const c=await hopInfo(prev,p,travModeOf(p)); travel=Math.ceil(c.min); }
-    const s=hmToMin(a.time), e=hmToMin(a.end);
-    const dur=(s!=null&&e!=null&&e>s)?e-s:60; /* bestaande duur behouden, anders 1 uur */
-    if(a.timeLocked&&s!=null){
-      cursor=(e!=null&&e>s)?e:s+dur; /* vastgezet: als anker gebruiken */
+    const dur=actDur(a);
+    if(a.timeLocked&&hmToMin(a.time)!=null){
+      const s=hmToMin(a.time), e=hmToMin(a.end);
+      cursor=(e!=null&&e>s)?e:s+dur; /* anker */
     } else {
       let arr=cursor+travel;
+      const fx=hmToMin(a.depTime); if(fx!=null) arr=fx+travel; /* eigen vertrektijd van de verplaatsing */
       if(hmToMin(a.opens)!=null) arr=Math.max(arr,hmToMin(a.opens)); /* niet vóór openingstijd */
       arr=Math.ceil(arr/5)*5;
-      a.time=minToHm(arr); a.end=minToHm(arr+dur);
-      delete a.depTime; /* handmatig vertrek-anker vervalt bij autoplanning */
+      const nt=minToHm(arr), ne=minToHm(arr+dur);
+      if(a.time!==nt||a.end!==ne){ a.time=nt; a.end=ne; changed=true; }
       cursor=arr+dur;
     }
     prev=p;
   }
+  return changed;
+}
+let REFLOWING=false;
+async function reflowTimes(){
+  if(!cur||!canEdit(cur)||REFLOWING) return;
+  REFLOWING=true;
+  try{
+    let changed=false;
+    for(const d of daysOf(cur)){ if(await reflowDay(d)) changed=true; }
+    if(changed){ await pushData(); render(); }
+  } finally { REFLOWING=false; }
+}
+/* toverstaf: dag geforceerd herrekenen (bv. na netwerkfout) */
+async function autoPlanDay(d){
+  if(!canEdit(cur)) return;
+  await reflowDay(d);
   await pushData(); render();
 }
 /* tijden en afstanden in het schema doorrekenen */
@@ -1916,7 +1939,7 @@ async function dragEnd(){
   let nt=null;
   if(ae!=null) nt=ae+30; else if(bt!=null) nt=Math.max(0,bt-((dur||60)+30));
   if(nt!=null){ a.time=minToHm(nt); if(dur!=null) a.end=minToHm(nt+dur); }
-  await pushData(); render();
+  await pushData(); render(); reflowTimes();
 }
 
 /* ================= DAGBOEK-TAB ================= */
@@ -2286,7 +2309,7 @@ async function aiSuggest(stopId){
       }
       cur.data.acts.push(act);
     }
-    await pushData(); render();
+    await pushData(); render(); reflowTimes();
     alert(sug.length+' AI-voorstellen toegevoegd voor '+s.name+'.\nJe herkent ze aan de paarse stippellijn — behoud (✓) of verwijder (✕) ze per stuk in het Dagboek.');
   }catch(e){
     alert('AI-voorstellen mislukt: '+e.message);
@@ -2600,7 +2623,7 @@ async function mergeMdIntoTrip(p){
     }
   }
   LEGGEOM={};
-  await pushData(); closeSheet(); render();
+  await pushData(); closeSheet(); render(); reflowTimes();
   alert('Import klaar: '+nieuweStops+' bestemming(en), '+nieuweActs+' activiteit(en) en '+nieuweHotels+' slaapplek(ken) toegevoegd.');
 }
 
@@ -2788,10 +2811,11 @@ function sheetAct(id,day,pre){
     '<div class="field" style="position:relative"><label>Wat (zoek een plek of typ vrij)</label><input id="f_title" placeholder="Bijv. Neuschwanstein" autocomplete="off" oninput="actInput(this.value)" value="'+esc(a?a.title:(pre.title||''))+'"><div class="ac" id="actAc"></div></div>'+
     '<div class="field"><label>Alias (eigen naam, krijgt overal voorrang)</label><input id="f_alias" placeholder="Bijv. concentratiekamp" value="'+esc(a?(a.alias||''):'')+'"></div>'+
     '<div class="field"><label>Dag</label><select id="f_day" onchange="fetchOpens()">'+sel+'</select></div>'+
-    '<div class="row2"><div class="field"><label>Van</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'" onchange="vanChanged()"></div>'+
+    '<div class="row2"><div class="field"><label>Duur</label><select id="f_dur" onchange="durChanged()">'+DUROPTS.map(x=>'<option value="'+x[0]+'">'+x[1]+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label>Van</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'" onchange="vanChanged()"></div>'+
     '<div class="field"><label>Tot</label><input id="f_aend" type="time" value="'+(a?(a.end||''):'')+'" onchange="totChanged()"></div>'+
-    '<div class="field"><label>Duur</label><select id="f_dur" onchange="durChanged()">'+DUROPTS.map(x=>'<option value="'+x[0]+'">'+x[1]+'</option>').join('')+'</select></div>'+
-    '<div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button type="button" class="lockbtn sm'+(pickedTimeLock?' on':'')+'" id="alock" onclick="toggleActLock()" title="Tijden vastzetten: de autoplanner (toverstaf) wijzigt ze dan niet">'+ic(pickedTimeLock?'lock':'lock-open')+'</button></div></div>'+
+    '<div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button type="button" class="lockbtn sm'+(pickedTimeLock?' on':'')+'" id="alock" onclick="toggleActLock()" title="Tijden vastzetten: de planner rekent er dan omheen">'+ic(pickedTimeLock?'lock':'lock-open')+'</button></div></div>'+
+    '<div class="set-hint" style="margin:-8px 0 12px">Van/Tot worden automatisch berekend uit de duur, voorgaande activiteiten en reistijd. Vul je ze zelf in, dan gaat het slot dicht en blijft jouw tijd staan.</div>'+
     '<div class="row2"><div class="field"><label>Openingsuur</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
     '<div class="field" style="flex:2;display:flex;align-items:flex-end"><span class="set-hint" id="opensHint" style="margin:0 0 12px">wordt via Google ingevuld op basis van de dag</span></div></div>'+
     '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:(pre.addr||''))+'"></div>'+
@@ -2802,7 +2826,11 @@ function sheetAct(id,day,pre){
     '<div class="btns">'+(a?'<button class="btn danger" onclick="delAct(\''+a.id+'\')">'+ic('trash')+'</button>':'')+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveAct(\''+(a?a.id:'')+'\','+(pre.lat!=null?pre.lat:'null')+','+(pre.lng!=null?pre.lng:'null')+')">Bewaar</button></div>');
-  syncDurSel();
+  const dEl=document.getElementById('f_dur');
+  if(a&&a.dur){
+    if(![...dEl.options].some(o=>+o.value===a.dur)) dEl.add(new Option(durTxt(a.dur),a.dur));
+    dEl.value=String(a.dur);
+  } else syncDurSel();
   fetchOpens(a);
 }
 /* slimme tijden: van/tot/duur houden elkaar in sync */
@@ -2812,13 +2840,21 @@ function syncDurSel(){
   const d=(s!=null&&e!=null&&e>s)?e-s:null;
   sel.value=(d!=null&&[...sel.options].some(o=>+o.value===d))?String(d):'';
 }
+function lockTimes(){ /* handmatig een tijd invullen = bewust: slot gaat dicht */
+  if(!pickedTimeLock){
+    pickedTimeLock=true;
+    const b=document.getElementById('alock');
+    if(b){ b.classList.add('on'); b.innerHTML=ic('lock'); }
+  }
+}
 function vanChanged(){
   const s=hmToMin(document.getElementById('f_time').value);
   const dur=+document.getElementById('f_dur').value||null;
   if(s!=null&&dur) document.getElementById('f_aend').value=minToHm(s+dur);
+  if(s!=null) lockTimes();
   syncDurSel();
 }
-function totChanged(){ syncDurSel(); }
+function totChanged(){ if(document.getElementById('f_aend').value) lockTimes(); syncDurSel(); }
 function durChanged(){
   const dur=+document.getElementById('f_dur').value||null; if(!dur) return;
   const tEl=document.getElementById('f_time');
@@ -2847,9 +2883,12 @@ async function saveAct(id,preLat,preLng){
   const title=document.getElementById('f_title').value.trim();
   if(!title){ alert('Geef een omschrijving.'); return; }
   const addr=document.getElementById('f_addr').value.trim();
+  const tV=document.getElementById('f_time').value, eV=document.getElementById('f_aend').value;
+  const durSel=+document.getElementById('f_dur').value||null;
+  const durTijden=(hmToMin(tV)!=null&&hmToMin(eV)!=null&&hmToMin(eV)>hmToMin(tV))?hmToMin(eV)-hmToMin(tV):null;
   const data={ title, alias:document.getElementById('f_alias').value.trim(),
-    type:pickedType, day:document.getElementById('f_day').value, time:document.getElementById('f_time').value,
-    end:document.getElementById('f_aend').value, timeLocked:pickedTimeLock,
+    type:pickedType, day:document.getElementById('f_day').value, time:tV, end:eV,
+    dur:durSel||durTijden||60, timeLocked:pickedTimeLock,
     opens:document.getElementById('f_opens').value, addr, note:document.getElementById('f_note').value.trim() };
   const old=id?cur.data.acts.find(x=>x.id===id):null;
   if(ACTPICK&&ACTPICK.lat!=null){ data.lat=ACTPICK.lat; data.lng=ACTPICK.lng; }
@@ -2862,9 +2901,9 @@ async function saveAct(id,preLat,preLng){
   data.gpid=ACTGPID||(old?old.gpid:null);
   if(id) Object.assign(old, data);
   else cur.data.acts.push(Object.assign({id:uid()},data));
-  await pushData(); closeSheet(); render();
+  await pushData(); closeSheet(); render(); reflowTimes();
 }
-async function delAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); await pushData(); closeSheet(); render(); }
+async function delAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); await pushData(); closeSheet(); render(); reflowTimes(); }
 /* plek-detail: foto's, beoordeling en openingsuren zoals in Google Maps */
 async function sheetPlace(actId){
   const a=cur.data.acts.find(x=>x.id===actId); if(!a) return;
