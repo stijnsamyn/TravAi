@@ -111,20 +111,19 @@
   .mapcats .chip.on{background:var(--green);color:#fff}
   .mapcats .chip.on .ti{color:#fff}
   .mappane.off{display:none}
-  .mapctl{position:fixed;bottom:20px;left:20px;z-index:700;display:flex;gap:6px;align-items:center}
-  .mapstyles{display:flex;background:#fff;border-radius:99px;box-shadow:0 2px 8px rgba(0,0,0,.22);padding:3px;gap:2px}
-  .mapstyles button{
-    border:none;background:transparent;font-size:12px;font-weight:700;padding:6px 11px;
-    border-radius:99px;cursor:pointer;color:var(--ink);white-space:nowrap;
-    display:flex;align-items:center;gap:5px;
+  .mapctl{
+    position:fixed;bottom:18px;left:18px;z-index:700;
+    display:flex;align-items:center;background:#fff;border-radius:99px;
+    box-shadow:0 2px 10px rgba(0,0,0,.22);padding:3px;gap:2px;
   }
-  .mapstyles button .ti{font-size:14px}
-  .mapstyles button.on{background:var(--green);color:#fff}
-  .mapoff{
-    width:34px;height:34px;border-radius:50%;border:none;background:#fff;
-    box-shadow:0 2px 8px rgba(0,0,0,.22);cursor:pointer;font-size:15px;
-    display:flex;align-items:center;justify-content:center;color:var(--ink);
+  .mapctl button{
+    width:34px;height:34px;border-radius:50%;border:none;background:transparent;
+    color:var(--muted);font-size:15px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
   }
+  .mapctl button:hover{color:var(--ink)}
+  .mapctl button.on{background:var(--green);color:#fff}
+  .mapctl .sep{width:1px;height:20px;background:var(--border);margin:0 3px}
   #map{width:100%;height:100%}
   .listpane{flex:1;padding:14px 14px 90px;max-width:760px;width:100%;margin:0 auto}
   @media(min-width:900px){
@@ -563,7 +562,7 @@ function applyMapStyle(){
   const t=TILES[SETTINGS.mapStyle]||TILES.standard;
   TILELAYER=L.tileLayer(t.u,{attribution:t.a,maxZoom:19}).addTo(MAP);
   if(TILELAYER.bringToBack) TILELAYER.bringToBack();
-  document.querySelectorAll('.mapstyles button').forEach(b=>b.classList.toggle('on',b.dataset.s===(SETTINGS.mapStyle||'standard')));
+  document.querySelectorAll('.mapctl button[data-s]').forEach(b=>b.classList.toggle('on',b.dataset.s===(SETTINGS.mapStyle||'standard')));
 }
 function setMapStyle(s){
   SETTINGS.mapStyle=s;
@@ -785,10 +784,11 @@ function render(){
       m.innerHTML=note+'<div class="split">'+
         '<div class="mappane'+(mapOn?'':' off')+'"><div id="map"></div><div class="mapcats" id="mapcats"></div></div>'+
         '<div class="mapctl">'+
-          (mapOn?'<div class="mapstyles">'+
-            Object.entries(TILES).map(([k,v])=>'<button data-s="'+k+'" title="'+v.lbl+'" onclick="setMapStyle(\''+k+'\')" class="'+(SETTINGS.mapStyle===k?'on':'')+'">'+ic(v.icon)+' '+v.lbl+'</button>').join('')+
-          '</div>':'')+
-          '<button class="mapoff" title="'+(mapOn?'Kaart verbergen':'Kaart tonen')+'" onclick="toggleMap()">'+ic(mapOn?'eye-off':'eye')+'</button>'+
+          (mapOn?
+            Object.entries(TILES).map(([k,v])=>'<button data-s="'+k+'" title="'+v.lbl+'" onclick="setMapStyle(\''+k+'\')" class="'+(SETTINGS.mapStyle===k?'on':'')+'">'+ic(v.icon)+'</button>').join('')+
+            '<span class="sep"></span>'
+          :'')+
+          '<button title="'+(mapOn?'Kaart verbergen':'Kaart tonen')+'" onclick="toggleMap()">'+ic(mapOn?'eye-off':'eye')+'</button>'+
         '</div>'+
         '<div class="listpane">'+renderRoute()+'</div></div>';
       if(mapOn) mountMap();
