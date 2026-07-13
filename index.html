@@ -2316,8 +2316,8 @@ async function aiSuggest(stopId){
     render();
   }
 }
-async function acceptAct(id){ const a=cur.data.acts.find(x=>x.id===id); if(a){ delete a.proposed; await pushData(); render(); } }
-async function rejectAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); await pushData(); render(); }
+async function acceptAct(id,fromSheet){ const a=cur.data.acts.find(x=>x.id===id); if(a){ delete a.proposed; await pushData(); if(fromSheet) closeSheet(); render(); } }
+async function rejectAct(id,fromSheet){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); await pushData(); if(fromSheet) closeSheet(); render(); }
 
 /* ================= LEDEN & DELEN ================= */
 async function loadMembers(){
@@ -2807,6 +2807,11 @@ function sheetAct(id,day,pre){
   const sel=days.map((d,i)=>'<option value="'+d+'" '+(selDay===d?'selected':'')+'>Dag '+(i+1)+(stopOf(d)?' — '+esc(stopOf(d)):'')+' · '+fmtKort(d)+'</option>').join('');
   const DUROPTS=[['',''],[30,'30 min'],[60,'1 uur'],[90,'1,5 uur'],[120,'2 uur'],[180,'3 uur'],[240,'4 uur'],[360,'6 uur'],[480,'hele dag']];
   openSheet('<h2>'+(a?'Item bewerken':'Item toevoegen')+'</h2>'+
+    (a&&a.proposed&&canEdit(cur)?'<div class="card proposed" style="margin:0 0 12px;padding:10px 12px">'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span class="prop-tag">'+ic('sparkles')+' AI-voorstel</span></div>'+
+      '<div class="btns" style="margin:0">'+
+      '<button class="btn ghost" style="color:#2f9e44;border-color:#2f9e44" onclick="acceptAct(\''+a.id+'\',true)">'+ic('check')+' Behouden</button>'+
+      '<button class="btn ghost" style="color:#e03131;border-color:#e03131" onclick="rejectAct(\''+a.id+'\',true)">'+ic('x')+' Verwijderen</button></div></div>':'')+
     '<div class="field"><label>Type</label><div class="type-pick iconpick" id="actTypes">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" data-k="'+k+'" title="'+v[1]+'" onclick="pickType(\''+k+'\',this)">'+ic(v[0])+'</button>').join('')+'</div></div>'+
     '<div class="field" style="position:relative"><label>Wat (zoek een plek of typ vrij)</label><input id="f_title" placeholder="Bijv. Neuschwanstein" autocomplete="off" oninput="actInput(this.value)" value="'+esc(a?a.title:(pre.title||''))+'"><div class="ac" id="actAc"></div></div>'+
     '<div class="field"><label>Alias (eigen naam, krijgt overal voorrang)</label><input id="f_alias" placeholder="Bijv. concentratiekamp" value="'+esc(a?(a.alias||''):'')+'"></div>'+
