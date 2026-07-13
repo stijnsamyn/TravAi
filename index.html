@@ -111,6 +111,20 @@
   .mapcats .chip.on{background:var(--green);color:#fff}
   .mapcats .chip.on .ti{color:#fff}
   .mappane.off{display:none}
+  .mapctl{position:absolute;bottom:12px;left:12px;z-index:610;display:flex;gap:6px;align-items:center}
+  .mapstyles{display:flex;background:#fff;border-radius:99px;box-shadow:0 2px 8px rgba(0,0,0,.22);padding:3px;gap:2px}
+  .mapstyles button{
+    border:none;background:transparent;font-size:12px;font-weight:700;padding:6px 11px;
+    border-radius:99px;cursor:pointer;color:var(--ink);white-space:nowrap;
+    display:flex;align-items:center;gap:5px;
+  }
+  .mapstyles button .ti{font-size:14px}
+  .mapstyles button.on{background:var(--green);color:#fff}
+  .mapoff{
+    width:34px;height:34px;border-radius:50%;border:none;background:#fff;
+    box-shadow:0 2px 8px rgba(0,0,0,.22);cursor:pointer;font-size:15px;
+    display:flex;align-items:center;justify-content:center;color:var(--ink);
+  }
   #map{width:100%;height:100%}
   .listpane{flex:1;padding:14px 14px 90px;max-width:760px;width:100%;margin:0 auto}
   @media(min-width:900px){
@@ -512,7 +526,7 @@ const GMAPS_KEY='AIzaSyCWDRxNNWM7bbM0jyNqM0ccCMj4Zr-Tsgc'; // Google Places API-
 const BUFFER_MIN=15;        // buffer bij vertrekadvies
 
 /* instellingen (per toestel bewaard) */
-let SETTINGS={veh:'car',range:330,charge:25,nav:'google',colAct:'#4263eb',colFood:'#e8590c',colHotel:'#f59f00',colStart:'#2fbe8f',showBudget:true,showLists:true,showAI:true};
+let SETTINGS={veh:'car',range:330,charge:25,nav:'google',colAct:'#4263eb',colFood:'#e8590c',colHotel:'#f59f00',colStart:'#2fbe8f',showBudget:true,showLists:true,showAI:true,mapStyle:'standard'};
 try{ Object.assign(SETTINGS, JSON.parse(localStorage.getItem('travai_settings')||'{}')); }catch(e){}
 function applyColors(){
   const r=document.documentElement.style;
@@ -536,7 +550,26 @@ let daysMode='cards';      // (verouderd, alleen nog intern)
 let routeMode='macro';     // Plan: macro (alleen bestemmingen) | micro (alles in volgorde)
 let diaryMode=null;        // Dagboek: macro (kalender) | micro (dag-detail); null = automatisch
 let mapOn=true;
-let MAP=null, ROUTELAYER=null, MAPVIEW=null;
+let MAP=null, ROUTELAYER=null, MAPVIEW=null, TILELAYER=null;
+/* kaart-stijlen: standaard voyager, satelliet (Esri) en openbaar vervoer (memomaps) */
+const TILES={
+  standard:{u:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',a:'© OpenStreetMap, © CARTO',lbl:'Standaard',icon:'map'},
+  sat:{u:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',a:'Tiles © Esri',lbl:'Satelliet',icon:'satellite'},
+  ov:{u:'https://tileserver.memomaps.de/tilegen/{z}/{x}/{y}.png',a:'© memomaps.de, © OpenStreetMap',lbl:'OV',icon:'bus'}
+};
+function applyMapStyle(){
+  if(!MAP) return;
+  if(TILELAYER) MAP.removeLayer(TILELAYER);
+  const t=TILES[SETTINGS.mapStyle]||TILES.standard;
+  TILELAYER=L.tileLayer(t.u,{attribution:t.a,maxZoom:19}).addTo(MAP);
+  if(TILELAYER.bringToBack) TILELAYER.bringToBack();
+  document.querySelectorAll('.mapstyles button').forEach(b=>b.classList.toggle('on',b.dataset.s===(SETTINGS.mapStyle||'standard')));
+}
+function setMapStyle(s){
+  SETTINGS.mapStyle=s;
+  localStorage.setItem('travai_settings',JSON.stringify(SETTINGS));
+  applyMapStyle();
+}
 let SCROLL_TODAY=false;
 /* routecache overleeft herladen: afstanden worden alleen berekend als er echt iets wijzigt */
 const LEGCACHE=(function(){ try{ return JSON.parse(localStorage.getItem('travai_legcache')||'{}'); }catch(e){ return {}; } })();
@@ -727,26 +760,39 @@ function render(){
     if((tab==='budget'&&!SETTINGS.showBudget)||(tab==='lists'&&!SETTINGS.showLists)) tab='route';
     const tot=totNights(cur), pl=plannedNights(cur), pct=tot?Math.min(100,Math.round(pl/tot*100)):0;
     hdr.innerHTML='<button class="hbtn" onclick="goHome()">'+ic('chevron-left')+'</button>'+
+      '<button class="pill'+(tab==='route'?' on':'')+'" onclick="setTab(\'route\')">'+ic('route')+' Plan</button>'+
+      '<button class="pill'+(tab==='diary'?' on':'')+'" onclick="setTab(\'diary\')">'+ic('book')+' Dagboek</button>'+
       '<div class="htitle"'+(edit?' onclick="sheetTrip(\''+cur.id+'\')" style="cursor:pointer" title="Reis bewerken"':'')+'><span class="dot"></span><div style="min-width:0"><h1>'+tripIcon(cur)+' '+esc(cur.name)+'</h1>'+
       '<div class="sub">'+(cur.start_date?fmtD(cur.start_date)+' – '+fmtDY(cur.end_date):'nog geen datums')+'</div></div></div>'+
       '<span class="avatars" id="avatars"></span>'+
-      '<button class="pill'+(tab==='route'?' on':'')+'" onclick="setTab(\'route\')">'+ic('route')+' Plan</button>'+
-      '<button class="pill'+(tab==='diary'?' on':'')+'" onclick="setTab(\'diary\')">'+ic('book')+' Dagboek</button>'+
       '<button class="pill" title="'+pl+' van '+tot+' nachten gepland" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+'</button>'+
+      '<button class="hbtn" title="Notities" onclick="sheetNotes()">'+ic('notes')+'</button>'+
       '<button class="hbtn" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
       '<button class="hbtn share-btn" title="Delen" onclick="sheetShare()">'+ic('share')+'</button>';
     const tabs=[];
     if(SETTINGS.showBudget) tabs.push(['budget','wallet','Budget']);
     if(SETTINGS.showLists) tabs.push(['lists','list-check','Lijsten']);
-    const extras='<button class="tabb iconly" title="Notities" onclick="sheetNotes()">'+ic('notes')+'</button>'+
-      (tab==='route'?'<button class="tabb iconly'+(mapOn?' on':'')+'" title="'+(mapOn?'Kaart verbergen':'Kaart tonen')+'" onclick="toggleMap()">'+ic('map')+'</button>':'');
-    tabbar.style.display='flex';
-    tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+ic(x[1])+' '+x[2]+'</button>').join('')+
-      '<span class="spacer"></span>'+extras;
+    const showMapChip=(tab==='route'&&!mapOn);
+    if(tabs.length||showMapChip){
+      tabbar.style.display='flex';
+      tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+ic(x[1])+' '+x[2]+'</button>').join('')+
+        '<span class="spacer"></span>'+
+        (showMapChip?'<button class="tabb iconly" title="Kaart tonen" onclick="toggleMap()">'+ic('eye')+'</button>':'');
+    } else {
+      tabbar.style.display='none';
+      tabbar.innerHTML='';
+    }
     const note=edit?'':'<div class="viewer-note">Gedeelde reis — '+(myRole(cur)==='viewer'?'alleen-lezen':'jij kunt meebewerken')+'</div>';
     if(tab==='route'){
       m.innerHTML=note+'<div class="split">'+
-        '<div class="mappane'+(mapOn?'':' off')+'"><div id="map"></div><div class="mapcats" id="mapcats"></div></div>'+
+        '<div class="mappane'+(mapOn?'':' off')+'"><div id="map"></div><div class="mapcats" id="mapcats"></div>'+
+          '<div class="mapctl">'+
+            '<div class="mapstyles">'+
+              Object.entries(TILES).map(([k,v])=>'<button data-s="'+k+'" title="'+v.lbl+'" onclick="setMapStyle(\''+k+'\')" class="'+(SETTINGS.mapStyle===k?'on':'')+'">'+ic(v.icon)+' '+v.lbl+'</button>').join('')+
+            '</div>'+
+            '<button class="mapoff" title="Kaart verbergen" onclick="toggleMap()">'+ic('eye-off')+'</button>'+
+          '</div>'+
+        '</div>'+
         '<div class="listpane">'+renderRoute()+'</div></div>';
       if(mapOn) mountMap();
       computeLegs();
@@ -1226,9 +1272,8 @@ function mountMap(){
   const el=document.getElementById('map'); if(!el) return;
   if(MAP){ MAP.remove(); MAP=null; }
   MAP=L.map('map',{zoomControl:true});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
-    attribution:'© OpenStreetMap, © CARTO', maxZoom:19
-  }).addTo(MAP);
+  TILELAYER=null;
+  applyMapStyle();
   ROUTELAYER=L.layerGroup().addTo(MAP);
   const pts=[];
   const rs=stopRanges(cur);
@@ -2026,7 +2071,8 @@ function mountDayMap(d){
   if(DMAP){ DMAP.remove(); DMAP=null; }
   const pts=dayPoints(d); if(!pts.length) return;
   DMAP=L.map('dmap',{zoomControl:false,attributionControl:false});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(DMAP);
+  const dt=TILES[SETTINGS.mapStyle]||TILES.standard;
+  L.tileLayer(dt.u,{maxZoom:19}).addTo(DMAP);
   let n=0;
   pts.forEach(p=>{
     if(p.returnTrip) return; /* zelfde plek als vertrek: geen dubbele marker */
