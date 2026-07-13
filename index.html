@@ -359,6 +359,7 @@
     display:flex;align-items:center;justify-content:center;
   }
   .lockbtn:hover{color:var(--ink)}
+  .lockbtn.sm{width:34px;height:42px;border-radius:12px;font-size:15px}
   .lockbtn.on{background:var(--amber-soft);color:#8a5a00;border-color:transparent;box-shadow:inset 0 0 0 1px rgba(245,166,35,.4)}
   .seg button{flex:1;border:none;background:none;padding:9px;font-size:13px;font-weight:700;color:var(--muted);border-radius:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:color .15s}
   .seg button:hover{color:var(--ink)}
@@ -1737,7 +1738,8 @@ function renderSchema(){
     const pts=schemaPoints(d);
     h+='<div class="sch-dayhead" data-day="'+d+'"><span class="dn">'+(di+1)+'</span><b>'+fmtDagLang(d)+'</b>'+
        '<span id="dtot-'+d+'" style="font-size:12px;color:var(--muted);font-weight:700"></span>'+
-       (edit?'<button class="addbtn" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>':'')+'</div>';
+       (edit?'<button class="addbtn" id="ap-'+d+'" style="margin-left:auto" title="Uren automatisch berekenen (reistijd, duur en openingsuren; vastgezette tijden blijven staan)" onclick="autoPlanDay(\''+d+'\')">'+ic('wand')+'</button>'+
+       '<button class="addbtn" style="margin-left:6px" title="Activiteit toevoegen" onclick="sheetAct(null,\''+d+'\')">'+ic('plus')+'</button>':'')+'</div>';
     if(!pts.length){ h+='<div class="sch-none" data-day="'+d+'">niets gepland'+(edit?' — sleep hier een activiteit naartoe':'')+'</div>'; return; }
     pts.forEach((p,idx)=>{
       if(idx>0){
@@ -1750,13 +1752,47 @@ function renderSchema(){
         '<span class="sic" style="color:'+p.color+'">'+ic(p.icon)+'</span>'+
         '<button class="ttl" '+(ph?'style="color:var(--muted);font-weight:500;font-style:italic;font-size:12.5px" ':'')+
         (p.act?'onclick="sheetAct(\''+p.act.id+'\')"':(p.hotel?'onclick="sheetHotel(\''+p.hotel.id+'\')"':(p.phStop?'onclick="sheetHotel(null,\''+p.phStop.id+'\')"':(p.stop?'onclick="sheetStop(\''+p.stop.id+'\')"':''))))+'>'+esc(p.label)+'</button>'+
-        (p.act&&(p.act.time||p.act.end)?'<span class="sch-time">'+esc(p.act.time||'')+(p.act.end?' – '+esc(p.act.end):'')+'</span>':'')+
+        (p.act&&(p.act.time||p.act.end)?'<span class="sch-time"'+(p.act.timeLocked?' title="Tijden vastgezet"':'')+'>'+(p.act.timeLocked?ic('lock')+' ':'')+esc(p.act.time||'')+(p.act.end?' – '+esc(p.act.end):'')+'</span>':'')+
         (edit&&p.act?'<span class="grip" onpointerdown="gripDown(event,\''+p.act.id+'\')">'+ic('grip-vertical')+'</span>':'')+
       '</div>';
     });
   });
   h+='</div>';
   return h;
+}
+/* uren van een dag automatisch invullen: reistijd + duur + openingsuur; vastgezette tijden blijven staan */
+async function autoPlanDay(d){
+  if(!canEdit(cur)) return;
+  const pts=schemaPoints(d);
+  if(pts.length<2){ alert('Niets te plannen op deze dag.'); return; }
+  const el=document.getElementById('ap-'+d); if(el) el.innerHTML=ic('clock-play');
+  /* start van de keten: etappe-vertrektijd of 09:00 */
+  let cursor=null;
+  const rsAll=stopRanges(cur);
+  const legIdx=rsAll.findIndex(r=>r.from===d);
+  if(legIdx>0&&rsAll[legIdx].stop.depTime) cursor=hmToMin(rsAll[legIdx].stop.depTime);
+  if(cursor==null) cursor=hmToMin('09:00');
+  let prev=pts[0];
+  for(const p of pts.slice(1)){
+    if(!p.act){ prev=p; continue; }
+    const a=p.act;
+    let travel=0;
+    if(prev.lat!=null&&p.lat!=null){ const c=await hopInfo(prev,p,travModeOf(p)); travel=Math.ceil(c.min); }
+    const s=hmToMin(a.time), e=hmToMin(a.end);
+    const dur=(s!=null&&e!=null&&e>s)?e-s:60; /* bestaande duur behouden, anders 1 uur */
+    if(a.timeLocked&&s!=null){
+      cursor=(e!=null&&e>s)?e:s+dur; /* vastgezet: als anker gebruiken */
+    } else {
+      let arr=cursor+travel;
+      if(hmToMin(a.opens)!=null) arr=Math.max(arr,hmToMin(a.opens)); /* niet vóór openingstijd */
+      arr=Math.ceil(arr/5)*5;
+      a.time=minToHm(arr); a.end=minToHm(arr+dur);
+      delete a.depTime; /* handmatig vertrek-anker vervalt bij autoplanning */
+      cursor=arr+dur;
+    }
+    prev=p;
+  }
+  await pushData(); render();
 }
 /* tijden en afstanden in het schema doorrekenen */
 async function computeSchema(){
@@ -2637,7 +2673,12 @@ async function delTrip(id){
 }
 
 /* --- planning-item --- */
-let actTimer=null, ACTRES=[], ACTPICK=null, ACTPHOTO=null, ACTGPID=null;
+let actTimer=null, ACTRES=[], ACTPICK=null, ACTPHOTO=null, ACTGPID=null, pickedTimeLock=false;
+function toggleActLock(){
+  pickedTimeLock=!pickedTimeLock;
+  const b=document.getElementById('alock');
+  if(b){ b.classList.toggle('on',pickedTimeLock); b.innerHTML=ic(pickedTimeLock?'lock':'lock-open'); }
+}
 function actInput(v){
   clearTimeout(actTimer); ACTPICK=null;
   if(v.trim().length<3){ const el=document.getElementById('actAc'); if(el){el.classList.remove('show');el.innerHTML='';} return; }
@@ -2737,6 +2778,7 @@ function sheetAct(id,day,pre){
   const a=id?cur.data.acts.find(x=>x.id===id):null;
   pre=pre||{};
   ACTPICK=null; ACTRES=[]; ACTPHOTO=pre.photo||null; ACTGPID=pre.gpid||null;
+  pickedTimeLock=a?!!a.timeLocked:false;
   pickedType=a?(a.type||'act'):(pre.type||'act');
   const days=daysOf(cur);
   const selDay=a?a.day:day;
@@ -2746,7 +2788,8 @@ function sheetAct(id,day,pre){
     '<div class="field" style="position:relative"><label>Wat (zoek een plek of typ vrij)</label><input id="f_title" placeholder="Bijv. Neuschwanstein" autocomplete="off" oninput="actInput(this.value)" value="'+esc(a?a.title:(pre.title||''))+'"><div class="ac" id="actAc"></div></div>'+
     '<div class="row2"><div class="field"><label>Dag</label><select id="f_day">'+sel+'</select></div>'+
     '<div class="field"><label>Van</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'"></div>'+
-    '<div class="field"><label>Tot</label><input id="f_aend" type="time" value="'+(a?(a.end||''):'')+'"></div></div>'+
+    '<div class="field"><label>Tot</label><input id="f_aend" type="time" value="'+(a?(a.end||''):'')+'"></div>'+
+    '<div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button type="button" class="lockbtn sm'+(pickedTimeLock?' on':'')+'" id="alock" onclick="toggleActLock()" title="Tijden vastzetten: de autoplanner (toverstaf) wijzigt ze dan niet">'+ic(pickedTimeLock?'lock':'lock-open')+'</button></div></div>'+
     '<div class="field"><label>Duur (vult automatisch "Tot" in)</label><div class="type-pick">'+[[30,'30 min'],[60,'1 uur'],[90,'1,5 uur'],[120,'2 uur'],[180,'3 uur'],[240,'4 uur'],[480,'hele dag']].map(x=>'<button onclick="setDur('+x[0]+')">'+x[1]+'</button>').join('')+'</div></div>'+
     '<div class="field"><label>Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
     '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:(pre.addr||''))+'"></div>'+
@@ -2762,7 +2805,7 @@ async function saveAct(id,preLat,preLng){
   if(!title){ alert('Geef een omschrijving.'); return; }
   const addr=document.getElementById('f_addr').value.trim();
   const data={ title, type:pickedType, day:document.getElementById('f_day').value, time:document.getElementById('f_time').value,
-    end:document.getElementById('f_aend').value,
+    end:document.getElementById('f_aend').value, timeLocked:pickedTimeLock,
     opens:document.getElementById('f_opens').value, addr, note:document.getElementById('f_note').value.trim() };
   const old=id?cur.data.acts.find(x=>x.id===id):null;
   if(ACTPICK&&ACTPICK.lat!=null){ data.lat=ACTPICK.lat; data.lng=ACTPICK.lng; }
