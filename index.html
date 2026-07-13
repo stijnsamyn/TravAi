@@ -695,6 +695,7 @@ function render(){
   if(view==='auth'){ hdr.innerHTML='<h1 style="font-size:19px">TravAI</h1>'; tabbar.style.display='none'; m.innerHTML=renderAuth(); return; }
   if(view==='home'){
     hdr.innerHTML='<div class="htitle"><h1>'+ic('map-2')+' TravAI</h1><span class="sub">mijn reizen</span></div>'+
+      '<button class="hbtn" title="Reis importeren (.md)" onclick="sheetImport(\'new\')">'+ic('file-import')+'</button>'+
       '<button class="hbtn" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
       '<button class="hbtn" title="Exporteer back-up" onclick="exportData()">'+ic('download')+'</button>'+
       '<button class="hbtn" title="Vernieuwen" onclick="refresh()">'+ic('refresh')+'</button>'+
@@ -722,6 +723,7 @@ function render(){
     if(SETTINGS.showLists) tabs.push(['lists','list-check','Lijsten']);
     tabbar.innerHTML=tabs.map(x=>'<button class="tabb '+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')">'+ic(x[1])+' '+x[2]+'</button>').join('')+
       '<span class="spacer"></span>'+
+      (edit?'<button class="tabb iconly" title="Aanvullen of exporteren (.md)" onclick="sheetImport(\'merge\')">'+ic('file-import')+'</button>':'')+
       '<button class="tabb iconly" title="Notities" onclick="sheetNotes()">'+ic('notes')+'</button>'+
       '<button class="tabb iconly" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
       (tab==='route'?'<button class="tabb iconly'+(mapOn?' on':'')+'" title="'+(mapOn?'Kaart verbergen':'Kaart tonen')+'" onclick="toggleMap()">'+ic('map')+'</button>':'');
@@ -2318,6 +2320,220 @@ function exportIcs(){
   const blob=new Blob([ics],{type:'text/calendar'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=(cur.name||'reis').replace(/\W+/g,'-')+'.ics'; a.click();
+}
+
+/* ================= MARKDOWN IMPORT & EXPORT ================= */
+/* Reizen als leesbare .md: hele reis importeren, of een bestaande reis aanvullen.
+   Het sjabloon is zo geschreven dat je het rechtstreeks aan een AI (bv. Claude) kunt geven. */
+const MD_UITLEG=[
+'<!--',
+'INSTRUCTIES (voor AI of mens) — verwijder dit blok niet, het wordt bij import genegeerd:',
+'- Elke bestemming: "## Plaatsnaam (N nachten)" — gebruik de officiële plaatsnaam.',
+'- Daaronder per dag: "Dag 1:", "Dag 2:", ...',
+'- Elke activiteit op één regel: "- 10:00-12:00 Titel [type] | korte reden waarom dit de moeite is"',
+'  * tijd is optioneel: "10:00" of "10:00-12:00"',
+'  * type is optioneel, kies uit: sight, museum, castle, nature, sport, shop, food, free, act',
+'  * alles na | is een notitie (optioneel)',
+'- Optioneel per bestemming: "Hotel: Naam, Adres"',
+'- Stel 2 à 3 activiteiten per dag voor, mix hoogtepunten met lokale pareltjes.',
+'- Gebruik alléén plekken die echt bestaan, met hun officiële naam (vindbaar in Google Maps).',
+'-->'].join('\n');
+function mdTemplate(){
+  return '# Mijn reis\n\nStart: '+new Date().toISOString().slice(0,10)+'\nEinde: '+addDays(new Date().toISOString().slice(0,10),9)+'\n\n'+MD_UITLEG+
+    '\n\n## Voorbeeldstad (2 nachten)\n\nDag 1:\n- 10:00-12:00 Voorbeeldmuseum [museum] | waarom dit de moeite is\n\nDag 2:\n- 09:30 Wandeling door het oude centrum [sight]\n\nHotel: Hotel Voorbeeld, Straatnaam 1\n';
+}
+function tripToMd(t,asTemplate){
+  let md='# '+(t.name||'Reis')+'\n\n';
+  if(t.start_date) md+='Start: '+t.start_date+'\nEinde: '+t.end_date+'\n\n';
+  if(asTemplate) md+=MD_UITLEG+'\n\nVul dit reisschema aan met voorstellen. Sla dagen met "(vrij houden)" niet over maar doe ook daar voorstellen. Herhaal bestaande activiteiten niet.\n\n';
+  stopRanges(t).forEach(r=>{
+    const s=r.stop;
+    if(s.isHome) return;
+    md+='## '+s.name+' ('+s.nights+' nacht'+(s.nights===1?'':'en')+')\n\n';
+    hotelsForStop(t,r).forEach(h=>{ md+='Hotel: '+hotName(h)+(h.addr?', '+h.addr:'')+'\n\n'; });
+    rangeDays(r).forEach((d,i)=>{
+      const acts=sortActs(t.data.acts.filter(a=>a.day===d));
+      md+='Dag '+(i+1)+': ('+fmtKort(d)+')\n';
+      if(acts.length) acts.forEach(a=>{
+        md+='- '+(a.time?a.time+(a.end?'-'+a.end:'')+' ':'')+a.title+(a.type&&a.type!=='act'?' ['+a.type+']':'')+(a.note?' | '+a.note:'')+'\n';
+      });
+      else md+=asTemplate?'- (stel hier 2 à 3 activiteiten voor)\n':'- (nog niets gepland)\n';
+      md+='\n';
+    });
+  });
+  return md;
+}
+function parseTripMd(md){
+  const out={name:'',start:'',end:'',stops:[]};
+  let cur=null, day=1, inComment=false;
+  md.split(/\r?\n/).forEach(line=>{
+    let l=line.trim();
+    if(inComment){ if(l.includes('-->')) inComment=false; return; }
+    if(l.startsWith('<!--')){ if(!l.includes('-->')) inComment=true; return; }
+    if(!l) return;
+    let m;
+    if(m=l.match(/^##\s+(.+?)\s*(?:\((\d+)\s*nacht\w*\))?\s*$/i)){ cur={name:m[1].trim(),nights:m[2]!=null?+m[2]:1,days:{},hotel:null}; day=1; out.stops.push(cur); return; }
+    if(m=l.match(/^#\s+(.+)/)){ out.name=m[1].trim(); return; }
+    if(m=l.match(/^start\s*:\s*(\d{4}-\d{2}-\d{2})/i)){ out.start=m[1]; return; }
+    if(m=l.match(/^eind\w*\s*:\s*(\d{4}-\d{2}-\d{2})/i)){ out.end=m[1]; return; }
+    if(m=l.match(/^dag\s+(\d+)\s*:?/i)){ day=Math.max(1,+m[1]); return; }
+    if(m=l.match(/^hotel\s*:\s*(.+)/i)){ if(cur){ const p=m[1].split(','); cur.hotel={name:p[0].trim(),addr:p.slice(1).join(',').trim()}; } return; }
+    if(m=l.match(/^[-*]\s+(.+)/)){
+      if(!cur) return;
+      let rest=m[1].trim();
+      if(/^\(.*\)$/.test(rest)) return; /* plaatshouders zoals "(nog niets gepland)" */
+      let time='', end='';
+      const tm=rest.match(/^(\d{1,2}[:.]\d{2})(?:\s*[-–]\s*(\d{1,2}[:.]\d{2}))?\s+/);
+      if(tm){ time=tm[1].replace('.',':').padStart(5,'0'); end=(tm[2]||'').replace('.',':'); if(end) end=end.padStart(5,'0'); rest=rest.slice(tm[0].length); }
+      let type='act';
+      const ty=rest.match(/\[(\w+)\]/);
+      if(ty){ const k=ty[1].toLowerCase(); if(ACT_TYPES[k]) type=k; rest=rest.replace(ty[0],'').trim(); }
+      const parts=rest.split(/\s*[|—]\s+|\s+--\s+/);
+      const title=parts[0].trim(); if(!title) return;
+      (cur.days[day]=cur.days[day]||[]).push({title,type,time,end,note:parts.slice(1).join(' ').trim()});
+    }
+  });
+  return out;
+}
+function normName(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim(); }
+async function enrichActPlaces(act,near){
+  if(!GMAPS_KEY) return;
+  try{
+    const body={textQuery:act.title+(near&&near.name?' '+near.name:''),maxResultCount:1,languageCode:'nl'};
+    if(near&&near.lat!=null) body.locationBias={circle:{center:{latitude:near.lat,longitude:near.lng},radius:30000}};
+    const r=await fetch('https://places.googleapis.com/v1/places:searchText',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,
+        'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location,places.photos'},
+      body:JSON.stringify(body)
+    });
+    const js=await r.json(); const p=js.places&&js.places[0];
+    if(p&&p.location){
+      act.lat=p.location.latitude; act.lng=p.location.longitude;
+      act.addr=p.formattedAddress||''; act.gpid=p.id;
+      act.photo=(p.photos&&p.photos[0])?'https://places.googleapis.com/v1/'+p.photos[0].name+'/media?maxWidthPx=240&key='+GMAPS_KEY:null;
+    }
+  }catch(e){}
+}
+function sheetImport(mode){
+  const merge=mode==='merge';
+  openSheet('<h2>'+ic('file-import')+' '+(merge?'Reis aanvullen uit tekst':'Reis importeren uit tekst')+'</h2>'+
+    '<div class="set-hint">'+(merge?
+      'Kopieer het sjabloon van deze reis, laat een AI (bv. Claude) voorstellen invullen, en plak het resultaat hieronder. Bestaande onderdelen blijven staan; alleen nieuwe komen erbij.':
+      'Plak hieronder een reis in tekstformaat (zie het lege sjabloon) — bestemmingen, dagen en activiteiten worden automatisch aangemaakt.')+'</div>'+
+    '<div class="field" style="margin-top:10px"><textarea id="f_md" rows="10" placeholder="# Mijn reis&#10;Start: 2026-08-01&#10;...&#10;## München (3 nachten)&#10;Dag 1:&#10;- 10:00 Marienplatz [sight]" style="font-family:ui-monospace,monospace;font-size:13px"></textarea></div>'+
+    '<div class="field"><input type="file" accept=".md,.txt,text/markdown,text/plain" onchange="mdFilePicked(event)"></div>'+
+    '<div id="impStatus" class="set-hint"></div>'+
+    '<div class="btns" style="margin-top:6px">'+
+      (merge?'<button class="btn ghost" onclick="copyText(tripToMd(cur,true),\'Sjabloon van deze reis\')">'+ic('copy')+' Sjabloon</button>'+
+             '<button class="btn ghost" onclick="downloadMd()">'+ic('file-export')+' Export .md</button>':
+             '<button class="btn ghost" onclick="copyText(mdTemplate(),\'Leeg sjabloon\')">'+ic('copy')+' Leeg sjabloon</button>')+
+    '</div>'+
+    '<div class="btns"><button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
+    '<button class="btn primary" onclick="runImport(\''+mode+'\')">'+ic('file-import')+' Importeer</button></div>');
+}
+function mdFilePicked(e){
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ const el=document.getElementById('f_md'); if(el) el.value=rd.result; };
+  rd.readAsText(f);
+}
+async function copyText(txt,label){
+  try{ await navigator.clipboard.writeText(txt); alert(label+' gekopieerd. Plak het bij je AI-assistent of in een tekstbestand.'); }
+  catch(e){
+    const blob=new Blob([txt],{type:'text/markdown'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='travai-sjabloon.md'; a.click();
+  }
+}
+function downloadMd(){
+  const blob=new Blob([tripToMd(cur,false)],{type:'text/markdown'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=(cur.name||'reis').replace(/\W+/g,'-')+'.md'; a.click();
+}
+function impStatus(t){ const el=document.getElementById('impStatus'); if(el) el.textContent=t; }
+async function runImport(mode){
+  const txt=(document.getElementById('f_md').value||'').trim();
+  if(!txt){ alert('Plak eerst de reistekst of kies een bestand.'); return; }
+  const p=parseTripMd(txt);
+  if(!p.stops.length){ alert('Geen bestemmingen gevonden. Gebruik "## Plaatsnaam (N nachten)" per bestemming.'); return; }
+  try{
+    if(mode==='merge') await mergeMdIntoTrip(p);
+    else await importMdAsNewTrip(p);
+  }catch(e){ alert('Import mislukt: '+e.message); }
+}
+async function importMdAsNewTrip(p){
+  impStatus('Reis aanmaken…');
+  const row={name:p.name||'Geïmporteerde reis', dest:p.stops.map(s=>s.name).join(' · ').slice(0,80),
+    start_date:p.start||null, end_date:p.end||null, emoji:'plane', owner:user.id, updated_at:new Date().toISOString(),
+    data:{stops:[],acts:[],hotels:[],todos:[],pack:[],exps:[],notes:''}};
+  /* bestemmingen geocoderen en data opbouwen */
+  let cursor=p.start||null;
+  for(const st of p.stops){
+    impStatus('Zoeken: '+st.name+'…');
+    const g=await geocode(st.name);
+    const stop={id:uid(),name:st.name,nights:st.nights,lat:g?g.lat:null,lng:g?g.lng:null};
+    row.data.stops.push(stop);
+    const from=cursor, to=(cursor&&st.nights>0)?addDays(cursor,st.nights):cursor;
+    if(st.hotel&&from){
+      const hg=await geocode(st.hotel.addr||st.hotel.name+' '+st.name);
+      row.data.hotels.push({id:uid(),name:st.hotel.name,addr:st.hotel.addr||'',stopId:stop.id,cin:from,cout:to,lat:hg?hg.lat:null,lng:hg?hg.lng:null});
+    }
+    for(const[dn,acts] of Object.entries(st.days)){
+      if(!from) continue;
+      const date=addDays(from,Math.min(+dn-1,Math.max(0,(st.nights||1)-1)));
+      for(const a of acts){
+        const act=Object.assign({id:uid(),day:date,addr:''},a);
+        impStatus('Opzoeken: '+a.title+'…');
+        await enrichActPlaces(act,{name:st.name,lat:stop.lat,lng:stop.lng});
+        row.data.acts.push(act);
+      }
+    }
+  }
+  impStatus('Bewaren…');
+  const res=await sb.from('trips').insert(row).select('id').single();
+  if(res.error) throw new Error(res.error.message);
+  await loadTrips(); closeSheet(); openTrip(res.data.id);
+}
+async function mergeMdIntoTrip(p){
+  if(!canEdit(cur)) throw new Error('Je kunt deze reis niet bewerken.');
+  let nieuweStops=0, nieuweActs=0, nieuweHotels=0;
+  /* 1. bestemmingen koppelen op naam; onbekende achteraan toevoegen */
+  for(const st of p.stops){
+    let stop=cur.data.stops.find(s=>normName(s.name)===normName(st.name)||normName(s.name).includes(normName(st.name))||normName(st.name).includes(normName(s.name)));
+    if(!stop){
+      impStatus('Nieuwe bestemming: '+st.name+'…');
+      const g=await geocode(st.name);
+      stop={id:uid(),name:st.name,nights:st.nights,lat:g?g.lat:null,lng:g?g.lng:null};
+      cur.data.stops.push(stop); nieuweStops++;
+    }
+    st._stop=stop;
+  }
+  /* 2. activiteiten en hotels per gekoppelde bestemming */
+  const rs=stopRanges(cur);
+  for(const st of p.stops){
+    const stop=st._stop;
+    const r=rs.find(x=>x.stop.id===stop.id);
+    if(!r||!r.from) continue;
+    if(st.hotel&&!hotelsForStop(cur,r).length){
+      const hg=await geocode(st.hotel.addr||st.hotel.name+' '+stop.name);
+      cur.data.hotels.push({id:uid(),name:st.hotel.name,addr:st.hotel.addr||'',stopId:stop.id,cin:r.from,cout:r.to,lat:hg?hg.lat:null,lng:hg?hg.lng:null});
+      nieuweHotels++;
+    }
+    const dsn=rangeDays(r);
+    for(const[dn,acts] of Object.entries(st.days)){
+      const date=dsn[Math.min(+dn-1,dsn.length-1)]||r.from;
+      for(const a of acts){
+        if(cur.data.acts.some(x=>x.day===date&&normName(x.title)===normName(a.title))) continue; /* al aanwezig */
+        const act=Object.assign({id:uid(),day:date,addr:''},a);
+        impStatus('Opzoeken: '+a.title+'…');
+        await enrichActPlaces(act,{name:stop.name,lat:stop.lat,lng:stop.lng});
+        cur.data.acts.push(act); nieuweActs++;
+      }
+    }
+  }
+  LEGGEOM={};
+  await pushData(); closeSheet(); render();
+  alert('Import klaar: '+nieuweStops+' bestemming(en), '+nieuweActs+' activiteit(en) en '+nieuweHotels+' slaapplek(ken) toegevoegd.');
 }
 
 /* ================= NOTITIES ================= */
