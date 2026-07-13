@@ -224,6 +224,7 @@
     display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;
     border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);font-family:'Quicksand',sans-serif;
   }
+  .apin.food{background:var(--col-food,#e8590c)}
   .apin.prop{background:#fdfcff;color:#9775fa;border:2px dashed #9775fa;opacity:.92}
   .apin{transition:transform .15s,box-shadow .15s}
   .mhl .apin{transform:scale(1.4);box-shadow:0 0 0 5px rgba(66,99,235,.30),0 4px 14px rgba(0,0,0,.35)}
@@ -511,14 +512,17 @@ const GMAPS_KEY='AIzaSyCWDRxNNWM7bbM0jyNqM0ccCMj4Zr-Tsgc'; // Google Places API-
 const BUFFER_MIN=15;        // buffer bij vertrekadvies
 
 /* instellingen (per toestel bewaard) */
-let SETTINGS={veh:'car',range:330,charge:25,nav:'google',colAct:'#4263eb',colHotel:'#f59f00',colStart:'#2fbe8f',showBudget:true,showLists:true,showAI:true};
+let SETTINGS={veh:'car',range:330,charge:25,nav:'google',colAct:'#4263eb',colFood:'#e8590c',colHotel:'#f59f00',colStart:'#2fbe8f',showBudget:true,showLists:true,showAI:true};
 try{ Object.assign(SETTINGS, JSON.parse(localStorage.getItem('travai_settings')||'{}')); }catch(e){}
 function applyColors(){
   const r=document.documentElement.style;
   r.setProperty('--col-act',SETTINGS.colAct||'#4263eb');
+  r.setProperty('--col-food',SETTINGS.colFood||'#e8590c');
   r.setProperty('--col-hotel',SETTINGS.colHotel||'#f59f00');
   r.setProperty('--col-start',SETTINGS.colStart||'#2fbe8f');
 }
+/* activiteitskleur volgens type: eten & drinken krijgt eigen kleur */
+function actColor(a){ return (a&&a.type==='food')?(SETTINGS.colFood||'#e8590c'):(SETTINGS.colAct||'#4263eb'); }
 applyColors();
 
 let sb=null, user=null, RT=null;
@@ -726,6 +730,7 @@ function render(){
       '<span class="avatars" id="avatars"></span>'+
       (edit?'<button class="pill" onclick="sheetTrip(\''+cur.id+'\')">'+ic('calendar')+(cur.start_date?fmtD(cur.start_date)+' – '+fmtD(cur.end_date):'datums')+'</button>':'')+
       '<button class="pill" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+' nachten</button>'+
+      '<button class="hbtn" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
       '<button class="btn-share" onclick="sheetShare()">'+ic('share')+' Delen</button>';
     tabbar.style.display='flex';
     if(['today','days','cal'].includes(tab)) tab='diary'; /* oude tabnamen opvangen */
@@ -785,16 +790,19 @@ function sheetSettings(){
     setSec('layout-list','Weergave')+
     setToggle('s_showbudget','Budget-tab tonen',SETTINGS.showBudget!==false,'Uitgaven bijhouden per reis')+
     setToggle('s_showlists','Lijsten-tab tonen',SETTINGS.showLists!==false,'To-do en paklijst')+
-    setToggle('s_showai','AI-reisagent',SETTINGS.showAI!==false,'Voorstellen per bestemming (kost een paar cent per aanvraag)')+
 
-    setSec('car','Voertuig')+
-    '<div class="field"><label>Mijn voertuig</label><select id="s_veh">'+
-      '<option value="car"'+(SETTINGS.veh==='car'?' selected':'')+'>Gewone auto (benzine/diesel)</option>'+
-      '<option value="ev"'+(SETTINGS.veh==='ev'?' selected':'')+'>Elektrische auto (met laadstop-advies)</option>'+
-    '</select></div>'+
-    '<div class="row2"><div class="field"><label>Actieradius (km)</label><input id="s_range" type="number" inputmode="numeric" value="'+SETTINGS.range+'"></div>'+
-    '<div class="field"><label>Laadtijd per stop (min)</label><input id="s_charge" type="number" inputmode="numeric" value="'+SETTINGS.charge+'"></div></div>'+
-    '<p class="set-hint">Alleen voor elektrisch. Richtwaarde Tesla Model Y: 330 km snelweg, 25 min per laadstop.</p>'+
+    setSec('sparkles','AI-hulp')+
+    setToggle('s_showai','AI-reisagent inschakelen',SETTINGS.showAI!==false,'Toont een knop bij elke bestemming om voorstellen op te vragen')+
+    '<p class="set-hint">Elke aanvraag kost een paar cent. Voorstellen verschijnen in het paars — accepteer of verwijder ze per stuk.</p>'+
+
+    setSec('palette','Kleuren op de kaart')+
+    '<div class="row2">'+
+      '<div class="field" style="margin:0"><label style="text-transform:none">Vertrek &amp; bestemming</label><input id="s_colstart" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colStart+'"></div>'+
+      '<div class="field" style="margin:0"><label style="text-transform:none">Slaapplek</label><input id="s_colhotel" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colHotel+'"></div>'+
+      '<div class="field" style="margin:0"><label style="text-transform:none">Activiteiten</label><input id="s_colact" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colAct+'"></div>'+
+      '<div class="field" style="margin:0"><label style="text-transform:none">Restaurants &amp; eten</label><input id="s_colfood" type="color" style="height:44px;padding:4px" value="'+(SETTINGS.colFood||'#e8590c')+'"></div>'+
+    '</div>'+
+    '<p class="set-hint">Restaurants en cafés (type “Eten &amp; drinken”) krijgen automatisch hun eigen kleur op de kaart en in het dagoverzicht.</p>'+
 
     setSec('navigation','Navigatie')+
     '<div class="field"><label>Navigeren met</label><select id="s_nav">'+
@@ -805,12 +813,14 @@ function sheetSettings(){
     '</select></div>'+
     '<p class="set-hint">Tesla: de bestemming wordt gedeeld; kies in het deelmenu de Tesla-app en hij verschijnt in je auto.</p>'+
 
-    setSec('palette','Kleuren')+
-    '<div class="row2">'+
-      '<div class="field" style="margin:0"><label style="text-transform:none">Activiteiten</label><input id="s_colact" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colAct+'"></div>'+
-      '<div class="field" style="margin:0"><label style="text-transform:none">Slaapplek</label><input id="s_colhotel" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colHotel+'"></div>'+
-      '<div class="field" style="margin:0"><label style="text-transform:none">Vertrek/stop</label><input id="s_colstart" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colStart+'"></div>'+
-    '</div>'+
+    setSec('car','Voertuig &amp; rijden')+
+    '<div class="field"><label>Mijn voertuig</label><select id="s_veh">'+
+      '<option value="car"'+(SETTINGS.veh==='car'?' selected':'')+'>Gewone auto (benzine/diesel)</option>'+
+      '<option value="ev"'+(SETTINGS.veh==='ev'?' selected':'')+'>Elektrische auto (met laadstop-advies)</option>'+
+    '</select></div>'+
+    '<div class="row2"><div class="field"><label>Actieradius (km)</label><input id="s_range" type="number" inputmode="numeric" value="'+SETTINGS.range+'"></div>'+
+    '<div class="field"><label>Laadtijd per stop (min)</label><input id="s_charge" type="number" inputmode="numeric" value="'+SETTINGS.charge+'"></div></div>'+
+    '<p class="set-hint">Alleen relevant voor elektrisch. Richtwaarde Tesla Model Y: 330 km snelweg, 25 min per laadstop.</p>'+
 
     '<div class="btns"><button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveSettings()">Bewaar</button></div>');
@@ -824,6 +834,7 @@ function saveSettings(){
   SETTINGS.charge=Math.max(5,+document.getElementById('s_charge').value||25);
   SETTINGS.nav=document.getElementById('s_nav').value;
   SETTINGS.colAct=document.getElementById('s_colact').value;
+  SETTINGS.colFood=document.getElementById('s_colfood').value;
   SETTINGS.colHotel=document.getElementById('s_colhotel').value;
   SETTINGS.colStart=document.getElementById('s_colstart').value;
   localStorage.setItem('travai_settings',JSON.stringify(SETTINGS));
@@ -1234,7 +1245,7 @@ function mountMap(){
   [...cur.data.acts].sort((a,b)=>(a.proposed?0:1)-(b.proposed?0:1)).forEach(a=>{
     if(a.lat==null) return;
     const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
-    const mk=L.marker([a.lat,a.lng],{zIndexOffset:a.proposed?-1000:0,icon:L.divIcon({className:'',html:'<div class="apin'+(a.proposed?' prop':'')+'">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]}),title:actName(a)})
+    const mk=L.marker([a.lat,a.lng],{zIndexOffset:a.proposed?-1000:0,icon:L.divIcon({className:'',html:'<div class="apin'+(a.proposed?' prop':(a.type==='food'?' food':''))+'">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]}),title:actName(a)})
       .addTo(MAP).on('click',()=>sheetPlace(a.id));
     mk._basez=a.proposed?-1000:0;
     ACTMARK[a.id]=mk;
@@ -1660,7 +1671,7 @@ function schemaPoints(d){
     const r=stopRanges(t).find(rr=>rangeDays(rr).includes(d));
     if(r&&r.stop.lat!=null) pts.push({kind:'start',label:r.stop.name,icon:'map-pin',lat:r.stop.lat,lng:r.stop.lng,stop:r.stop,color:SETTINGS.colStart});
   }
-  sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:actName(a),icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:a.proposed?'#9775fa':SETTINGS.colAct}));
+  sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:actName(a),icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:a.proposed?'#9775fa':actColor(a)}));
   const ton=sleepPointForDay(t,d);
   if(ton&&!(pts[0]&&pts[0].key===ton.key)){
     pts.push({kind:'hotel',label:ton.name+(ton.placeholder?' (nog geen hotel)':''),icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton.hotel,phStop:ton.stop,key:ton.key,color:ton.placeholder?'#a0aab4':SETTINGS.colHotel});
@@ -2196,7 +2207,7 @@ function renderCal(){
       h+='<div class="sch-dayhead" style="cursor:pointer" onclick="gotoDay(\''+d+'\')"><span class="dn">'+(di+1)+'</span><b>'+fmtDagLang(d)+'</b></div>';
       acts.forEach(a=>{
         const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
-        h+='<div class="sch-item"><span class="sic" style="color:'+(a.proposed?'#9775fa':SETTINGS.colAct)+'">'+ic(icn)+'</span>'+
+        h+='<div class="sch-item"><span class="sic" style="color:'+(a.proposed?'#9775fa':actColor(a))+'">'+ic(icn)+'</span>'+
           '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+esc(actName(a))+'</button>'+
           ((a.time||a.end)?'<span class="sch-time">'+esc(a.time||'')+(a.end?' – '+esc(a.end):'')+'</span>':'')+'</div>';
       });
