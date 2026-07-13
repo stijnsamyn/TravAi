@@ -765,7 +765,7 @@ function render(){
       '<button class="pill'+(tab==='diary'?' on':'')+'" onclick="setTab(\'diary\')">'+ic('book')+' Dagboek</button>'+
       '<span class="avatars" id="avatars"></span>'+
       '<button class="pill" title="'+pl+' van '+tot+' nachten gepland" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+'</button>'+
-      (edit?'<button class="lockbtn'+(cur.data.locked?' on':'')+'" title="'+(cur.data.locked?'Vastgezet: bestemmingen en nachten zijn vergrendeld — tik om te ontgrendelen':'Zet bestemmingen en nachten vast')+'" onclick="toggleLock()">'+ic(cur.data.locked?'lock':'lock-open')+'</button>':'')+
+      (edit?(function(){const lv=lockLevel(cur),info=LOCK_INFO[lv];return '<button class="lockbtn'+(lv?' on':'')+'" title="'+esc(info.lbl+' — '+info.hint)+'" onclick="cycleLock()">'+ic(info.icon)+'</button>';})():'')+
       '<button class="hbtn" title="Notities" onclick="sheetNotes()">'+ic('notes')+'</button>'+
       '<button class="hbtn" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
       '<button class="hbtn share-btn" title="Delen" onclick="sheetShare()">'+ic('share')+'</button>';
@@ -853,12 +853,11 @@ function sheetSettings(){
 
     setSec('palette','Kleuren op de kaart')+
     '<div class="row2">'+
-      '<div class="field" style="margin:0"><label style="text-transform:none">Vertrek &amp; bestemming</label><input id="s_colstart" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colStart+'"></div>'+
+      '<div class="field" style="margin:0"><label style="text-transform:none">Start en stop</label><input id="s_colstart" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colStart+'"></div>'+
       '<div class="field" style="margin:0"><label style="text-transform:none">Slaapplek</label><input id="s_colhotel" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colHotel+'"></div>'+
       '<div class="field" style="margin:0"><label style="text-transform:none">Activiteiten</label><input id="s_colact" type="color" style="height:44px;padding:4px" value="'+SETTINGS.colAct+'"></div>'+
       '<div class="field" style="margin:0"><label style="text-transform:none">Restaurants &amp; eten</label><input id="s_colfood" type="color" style="height:44px;padding:4px" value="'+(SETTINGS.colFood||'#e8590c')+'"></div>'+
     '</div>'+
-    '<p class="set-hint">Restaurants en cafés (type “Eten &amp; drinken”) krijgen automatisch hun eigen kleur op de kaart en in het dagoverzicht.</p>'+
 
     setSec('navigation','Navigatie')+
     '<div class="field"><label>Navigeren met</label><select id="s_nav">'+
@@ -1060,12 +1059,27 @@ async function chgNights(id,d){
   s.nights=Math.max(0,(s.nights||0)+d);
   await pushData(); render();
 }
-/* bestemmingen & nachten vastzetten: geen wijzigingen meer, en Plan opent op de lijst */
-async function toggleLock(){
+/* Slot in 3 standen: 0 = open, 1 = bestemmingen vast, 2 = bestemmingen + activiteiten vast.
+   Legacy: als data.locked==true en er is nog geen lockLevel, geldt dat als niveau 1. */
+function lockLevel(t){
+  if(!t||!t.data) return 0;
+  if(t.data.lockLevel!=null) return t.data.lockLevel|0;
+  return t.data.locked?1:0;
+}
+function stopsEditable(t){ return canEdit(t) && lockLevel(t)===0; }
+function actsEditable(t){ return canEdit(t) && lockLevel(t)<2; }
+const LOCK_INFO=[
+  {icon:'lock-open',lbl:'Alles is open',hint:'Bestemmingen én activiteiten zijn vrij te bewerken. Tik om bestemmingen vast te zetten.'},
+  {icon:'lock',lbl:'Bestemmingen vergrendeld',hint:'Bestemmingen en nachten liggen vast. Activiteiten kun je nog aanpassen. Tik om ook activiteiten vast te zetten.'},
+  {icon:'shield-lock',lbl:'Alles vergrendeld',hint:'Bestemmingen én activiteiten liggen vast. Tik om te ontgrendelen.'}
+];
+async function cycleLock(){
   if(!canEdit(cur)) return;
-  if(cur.data.locked) delete cur.data.locked; else cur.data.locked=true;
+  const next=(lockLevel(cur)+1)%3;
+  cur.data.lockLevel=next;
+  if(next===0) delete cur.data.locked; else cur.data.locked=true; /* legacy-veld bijhouden */
   await pushData();
-  routeMode=cur.data.locked?'micro':'macro';
+  routeMode=next>=1?'micro':'macro';
   render();
 }
 /* bestemming tijdelijk uit de reis halen: route, datums en totalen rekenen meteen zonder deze stop */
