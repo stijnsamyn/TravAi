@@ -430,8 +430,10 @@
   .type-pick button{font-size:13px;font-weight:700;background:var(--bg);border:2px solid transparent;border-radius:99px;padding:8px 13px;cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
   .type-pick button .ti{font-size:15px}
   .type-pick button.on{border-color:var(--green);background:var(--green-soft);color:var(--green-ink)}
-  .type-pick.iconpick button{width:46px;height:46px;padding:0;border-radius:12px;justify-content:center}
-  .type-pick.iconpick button .ti{font-size:21px}
+  .type-pick.iconpick{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:6px;padding-bottom:2px}
+  .type-pick.iconpick::-webkit-scrollbar{display:none}
+  .type-pick.iconpick button{width:36px;height:36px;padding:0;border-radius:11px;justify-content:center;flex:none}
+  .type-pick.iconpick button .ti{font-size:17px}
   /* leg sheet */
   .leg-title{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:700;margin-bottom:4px}
   .leg-title .lnk{color:var(--pink);font-size:13px}
@@ -625,6 +627,7 @@ function plannedNights(t){ return activeStops(t).reduce((s,x)=>s+(x.nights||0),0
 function activeStops(t){ return t.data.stops.filter(s=>!s.off); }
 function hotelNights(h){ if(!h.cin||!h.cout) return 0; return Math.max(0,Math.round((new Date(h.cout)-new Date(h.cin))/86400000)); }
 function hotName(h){ return (h&&(h.alias||h.name))||''; } /* alias krijgt overal voorrang */
+function actName(a){ return (a&&(a.alias||a.title))||''; }
 /* datumbereik per stop: aankomst = start + som nachten ervoor */
 function stopRanges(t){
   const out=[]; let cursor=t.start_date||null;
@@ -1080,7 +1083,7 @@ function renderStopDays(t,r,edit){
     acts.forEach(a=>{
       const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
       h+='<div class="mini" data-act="'+a.id+'"><span class="t">'+(a.time?esc(a.time):'—')+(a.end?'<br><span style="color:var(--muted);font-size:10px">'+esc(a.end)+'</span>':'')+'</span>'+
-         '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+ic(icn)+' '+esc(a.title)+'</button>'+
+         '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+ic(icn)+' '+esc(actName(a))+'</button>'+
          (edit?'<button class="mv" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">'+ic('chevron-left')+'</button><button class="mv" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">'+ic('chevron-right')+'</button>':'')+
          '</div>';
     });
@@ -1230,7 +1233,7 @@ function mountMap(){
   [...cur.data.acts].sort((a,b)=>(a.proposed?0:1)-(b.proposed?0:1)).forEach(a=>{
     if(a.lat==null) return;
     const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
-    const mk=L.marker([a.lat,a.lng],{zIndexOffset:a.proposed?-1000:0,icon:L.divIcon({className:'',html:'<div class="apin'+(a.proposed?' prop':'')+'">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]}),title:a.title})
+    const mk=L.marker([a.lat,a.lng],{zIndexOffset:a.proposed?-1000:0,icon:L.divIcon({className:'',html:'<div class="apin'+(a.proposed?' prop':'')+'">'+ic(icn)+'</div>',iconSize:[28,28],iconAnchor:[14,14]}),title:actName(a)})
       .addTo(MAP).on('click',()=>sheetPlace(a.id));
     mk._basez=a.proposed?-1000:0;
     ACTMARK[a.id]=mk;
@@ -1533,7 +1536,7 @@ async function fillLegSheet(a,b){
   const lbl=mode==='car'?(SETTINGS.veh==='ev'?'Auto (elektrisch)':'Auto'):MODES[mode][1];
   let h='<div class="mode-card"><span class="mi">'+ic(MODES[mode][0])+'</span><div class="mm"><b>'+lbl+'</b>'+
     '<div class="s">'+durTxt(c.min)+' · '+Math.round(c.km)+' km'+(c.est?' (schatting'+(mode==='plane'?', excl. inchecken':'')+')':'')+'</div></div></div>';
-  if(wp.length) h+='<div class="charge" style="background:var(--green-soft);color:var(--green-ink)">'+ic('route')+' Route loopt automatisch via: '+wp.map(x=>esc(x.title)).join(' → ')+'</div>';
+  if(wp.length) h+='<div class="charge" style="background:var(--green-soft);color:var(--green-ink)">'+ic('route')+' Route loopt automatisch via: '+wp.map(x=>esc(actName(x))).join(' → ')+'</div>';
   let extra=0;
   if(mode==='car'){
     const n=chargeStops(c.km,mode); extra=n*SETTINGS.charge;
@@ -1622,7 +1625,7 @@ function buildActCards(acts,edit){
     h+='<div class="card'+(a.proposed?' proposed':'')+'" data-act="'+a.id+'">'+(edit?
       '<button class="kebab" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':'')+
       '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+(a.end?'<div class="end">tot '+esc(a.end)+'</div>':'')+'</div><div class="body">'+
-      '<h4>'+ic(icn)+' '+esc(a.title)+'</h4>'+
+      '<h4>'+ic(icn)+' '+esc(actName(a))+'</h4>'+
       (a.proposed?'<span class="prop-tag">'+ic('sparkles')+' AI-voorstel</span>'+
         (edit?' <button class="maplink" style="border:none;cursor:pointer;color:#2f9e44" onclick="acceptAct(\''+a.id+'\')">'+ic('check')+' Behouden</button>'+
         '<button class="maplink" style="border:none;cursor:pointer;color:#e03131" onclick="rejectAct(\''+a.id+'\')">'+ic('x')+' Weg</button>':''):'')+
@@ -1631,7 +1634,7 @@ function buildActCards(acts,edit){
       (a.opens?'<span class="opens-tag">opent om '+esc(a.opens)+'</span>':'')+
       (a.addr?'<div class="addr">'+ic('map-pin')+' '+esc(a.addr)+'</div>':'')+
       ((a.addr||a.gpid||a.photo)?'<button class="maplink iconly" style="border:none;cursor:pointer" title="Info &amp; foto\'s" onclick="sheetPlace(\''+a.id+'\')">'+ic('photo')+'</button>':'')+
-      (a.lat!=null?'<button class="maplink iconly" style="border:none;cursor:pointer" title="Navigeer" onclick="navTo('+a.lat+','+a.lng+',\''+esc(a.title)+'\')">'+ic('navigation')+'</button>':
+      (a.lat!=null?'<button class="maplink iconly" style="border:none;cursor:pointer" title="Navigeer" onclick="navTo('+a.lat+','+a.lng+',\''+esc(actName(a))+'\')">'+ic('navigation')+'</button>':
         (a.addr?'<a class="maplink iconly" target="_blank" title="Google Maps" href="'+gmapsUrl(a.addr)+'">'+ic('brand-google')+'</a>':''))+
       (a.gpid?'<a class="maplink iconly" target="_blank" title="Google-pagina (recensies, routes)" href="https://www.google.com/maps/place/?q=place_id:'+encodeURIComponent(a.gpid)+'">'+ic('brand-google')+'</a>':'')+
       (a.note?'<div class="note">'+esc(a.note)+'</div>':'')+
@@ -1656,7 +1659,7 @@ function schemaPoints(d){
     const r=stopRanges(t).find(rr=>rangeDays(rr).includes(d));
     if(r&&r.stop.lat!=null) pts.push({kind:'start',label:r.stop.name,icon:'map-pin',lat:r.stop.lat,lng:r.stop.lng,stop:r.stop,color:SETTINGS.colStart});
   }
-  sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:a.title,icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:a.proposed?'#9775fa':SETTINGS.colAct}));
+  sortActs(t.data.acts.filter(a=>a.day===d)).forEach(a=>pts.push({kind:'act',label:actName(a),icon:(ACT_TYPES[a.type]||ACT_TYPES.act)[0],lat:a.lat,lng:a.lng,act:a,color:a.proposed?'#9775fa':SETTINGS.colAct}));
   const ton=sleepPointForDay(t,d);
   if(ton&&!(pts[0]&&pts[0].key===ton.key)){
     pts.push({kind:'hotel',label:ton.name+(ton.placeholder?' (nog geen hotel)':''),icon:'bed',lat:ton.lat,lng:ton.lng,hotel:ton.hotel,phStop:ton.stop,key:ton.key,color:ton.placeholder?'#a0aab4':SETTINGS.colHotel});
@@ -2171,7 +2174,7 @@ function renderCal(){
       acts.forEach(a=>{
         const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
         h+='<div class="sch-item"><span class="sic" style="color:'+(a.proposed?'#9775fa':SETTINGS.colAct)+'">'+ic(icn)+'</span>'+
-          '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+esc(a.title)+'</button>'+
+          '<button class="ttl" onclick="sheetAct(\''+a.id+'\')">'+esc(actName(a))+'</button>'+
           ((a.time||a.end)?'<span class="sch-time">'+esc(a.time||'')+(a.end?' – '+esc(a.end):'')+'</span>':'')+'</div>';
       });
     });
@@ -2367,7 +2370,7 @@ function exportIcs(){
     const dt=a.day.replace(/-/g,'');
     const st=(a.time||'09:00').replace(':','')+'00';
     const en=(a.end||a.time||'10:00').replace(':','')+'00';
-    ics+='BEGIN:VEVENT\r\nUID:'+a.id+'@travai\r\nDTSTART:'+dt+'T'+st+'\r\nDTEND:'+dt+'T'+en+'\r\nSUMMARY:'+clean(a.title)+'\r\n'+(a.addr?'LOCATION:'+clean(a.addr)+'\r\n':'')+(a.note?'DESCRIPTION:'+clean(a.note)+'\r\n':'')+'END:VEVENT\r\n';
+    ics+='BEGIN:VEVENT\r\nUID:'+a.id+'@travai\r\nDTSTART:'+dt+'T'+st+'\r\nDTEND:'+dt+'T'+en+'\r\nSUMMARY:'+clean(actName(a))+'\r\n'+(a.addr?'LOCATION:'+clean(a.addr)+'\r\n':'')+(a.note?'DESCRIPTION:'+clean(a.note)+'\r\n':'')+'END:VEVENT\r\n';
   });
   cur.data.hotels.filter(h=>h.cin).forEach(x=>{
     ics+='BEGIN:VEVENT\r\nUID:'+x.id+'@travai\r\nDTSTART;VALUE=DATE:'+x.cin.replace(/-/g,'')+'\r\nDTEND;VALUE=DATE:'+(x.cout||x.cin).replace(/-/g,'')+'\r\nSUMMARY:Verblijf '+clean(hotName(x))+'\r\n'+(x.addr?'LOCATION:'+clean(x.addr)+'\r\n':'')+'END:VEVENT\r\n';
@@ -2731,11 +2734,6 @@ async function searchActPlaces(q){
     '<small>'+esc(p.addr||'')+'</small></button>').join('');
   el.classList.add('show');
 }
-function setDur(min){
-  const st=document.getElementById('f_time');
-  if(!st.value) st.value='09:00';
-  document.getElementById('f_aend').value=minToHm(hmToMin(st.value)+min);
-}
 /* beste dag voor een plek: dichtstbijzijnde bestemming, dag met de minste planning */
 function bestDayForPlace(lat,lng){
   if(!cur||lat==null) return null;
@@ -2780,31 +2778,77 @@ function sheetAct(id,day,pre){
   ACTPICK=null; ACTRES=[]; ACTPHOTO=pre.photo||null; ACTGPID=pre.gpid||null;
   pickedTimeLock=a?!!a.timeLocked:false;
   pickedType=a?(a.type||'act'):(pre.type||'act');
-  const days=daysOf(cur);
+  const days=daysOf(cur), rsA=stopRanges(cur);
+  const stopOf=d=>{ const r=rsA.find(rr=>rangeDays(rr).includes(d)); return r?r.stop.name:''; };
   const selDay=a?a.day:day;
-  const sel=days.map((d,i)=>'<option value="'+d+'" '+(selDay===d?'selected':'')+'>Dag '+(i+1)+' — '+fmtDagLang(d)+'</option>').join('');
+  const sel=days.map((d,i)=>'<option value="'+d+'" '+(selDay===d?'selected':'')+'>Dag '+(i+1)+(stopOf(d)?' — '+esc(stopOf(d)):'')+' · '+fmtKort(d)+'</option>').join('');
+  const DUROPTS=[['',''],[30,'30 min'],[60,'1 uur'],[90,'1,5 uur'],[120,'2 uur'],[180,'3 uur'],[240,'4 uur'],[360,'6 uur'],[480,'hele dag']];
   openSheet('<h2>'+(a?'Item bewerken':'Item toevoegen')+'</h2>'+
     '<div class="field"><label>Type</label><div class="type-pick iconpick" id="actTypes">'+Object.entries(ACT_TYPES).map(([k,v])=>'<button class="'+(k===pickedType?'on':'')+'" data-k="'+k+'" title="'+v[1]+'" onclick="pickType(\''+k+'\',this)">'+ic(v[0])+'</button>').join('')+'</div></div>'+
     '<div class="field" style="position:relative"><label>Wat (zoek een plek of typ vrij)</label><input id="f_title" placeholder="Bijv. Neuschwanstein" autocomplete="off" oninput="actInput(this.value)" value="'+esc(a?a.title:(pre.title||''))+'"><div class="ac" id="actAc"></div></div>'+
-    '<div class="row2"><div class="field"><label>Dag</label><select id="f_day">'+sel+'</select></div>'+
-    '<div class="field"><label>Van</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'"></div>'+
-    '<div class="field"><label>Tot</label><input id="f_aend" type="time" value="'+(a?(a.end||''):'')+'"></div>'+
+    '<div class="field"><label>Alias (eigen naam, krijgt overal voorrang)</label><input id="f_alias" placeholder="Bijv. concentratiekamp" value="'+esc(a?(a.alias||''):'')+'"></div>'+
+    '<div class="field"><label>Dag</label><select id="f_day" onchange="fetchOpens()">'+sel+'</select></div>'+
+    '<div class="row2"><div class="field"><label>Van</label><input id="f_time" type="time" value="'+(a?(a.time||''):'')+'" onchange="vanChanged()"></div>'+
+    '<div class="field"><label>Tot</label><input id="f_aend" type="time" value="'+(a?(a.end||''):'')+'" onchange="totChanged()"></div>'+
+    '<div class="field"><label>Duur</label><select id="f_dur" onchange="durChanged()">'+DUROPTS.map(x=>'<option value="'+x[0]+'">'+x[1]+'</option>').join('')+'</select></div>'+
     '<div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button type="button" class="lockbtn sm'+(pickedTimeLock?' on':'')+'" id="alock" onclick="toggleActLock()" title="Tijden vastzetten: de autoplanner (toverstaf) wijzigt ze dan niet">'+ic(pickedTimeLock?'lock':'lock-open')+'</button></div></div>'+
-    '<div class="field"><label>Duur (vult automatisch "Tot" in)</label><div class="type-pick">'+[[30,'30 min'],[60,'1 uur'],[90,'1,5 uur'],[120,'2 uur'],[180,'3 uur'],[240,'4 uur'],[480,'hele dag']].map(x=>'<button onclick="setDur('+x[0]+')">'+x[1]+'</button>').join('')+'</div></div>'+
-    '<div class="field"><label>Openingsuur (voor vertrekadvies)</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
+    '<div class="row2"><div class="field"><label>Openingsuur</label><input id="f_opens" type="time" value="'+(a?(a.opens||''):(pre.opens||''))+'"></div>'+
+    '<div class="field" style="flex:2;display:flex;align-items:flex-end"><span class="set-hint" id="opensHint" style="margin:0 0 12px">wordt via Google ingevuld op basis van de dag</span></div></div>'+
     '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:(pre.addr||''))+'"></div>'+
     '<div class="field"><label>Notitie (optioneel)</label><textarea id="f_note" rows="2">'+esc(a?a.note:'')+'</textarea></div>'+
-    (a&&canEdit(cur)?'<button class="btn ghost" style="width:100%;margin-bottom:4px" onclick="actAsVia(\''+a.id+'\')">'+ic('route')+' Routepunt op de rit (blijft activiteit)</button>'+
-      '<button class="btn ghost" style="width:100%;margin-bottom:4px" onclick="actToStop(\''+a.id+'\')">'+ic('map-pin')+' Maak er een bestemming van</button>':'')+
+    (a&&canEdit(cur)?'<div class="btns" style="margin-top:4px">'+
+      '<button class="btn ghost" title="Blijft een activiteit; de etappe rijdt er langs" onclick="actAsVia(\''+a.id+'\')">'+ic('route')+' Routepunt</button>'+
+      '<button class="btn ghost" title="Wordt een eigen bestemming op de route" onclick="actToStop(\''+a.id+'\')">'+ic('map-pin')+' Bestemming</button></div>':'')+
     '<div class="btns">'+(a?'<button class="btn danger" onclick="delAct(\''+a.id+'\')">'+ic('trash')+'</button>':'')+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveAct(\''+(a?a.id:'')+'\','+(pre.lat!=null?pre.lat:'null')+','+(pre.lng!=null?pre.lng:'null')+')">Bewaar</button></div>');
+  syncDurSel();
+  fetchOpens(a);
+}
+/* slimme tijden: van/tot/duur houden elkaar in sync */
+function syncDurSel(){
+  const s=hmToMin(document.getElementById('f_time').value), e=hmToMin(document.getElementById('f_aend').value);
+  const sel=document.getElementById('f_dur'); if(!sel) return;
+  const d=(s!=null&&e!=null&&e>s)?e-s:null;
+  sel.value=(d!=null&&[...sel.options].some(o=>+o.value===d))?String(d):'';
+}
+function vanChanged(){
+  const s=hmToMin(document.getElementById('f_time').value);
+  const dur=+document.getElementById('f_dur').value||null;
+  if(s!=null&&dur) document.getElementById('f_aend').value=minToHm(s+dur);
+  syncDurSel();
+}
+function totChanged(){ syncDurSel(); }
+function durChanged(){
+  const dur=+document.getElementById('f_dur').value||null; if(!dur) return;
+  const tEl=document.getElementById('f_time');
+  if(!tEl.value) tEl.value='09:00';
+  document.getElementById('f_aend').value=minToHm(hmToMin(tEl.value)+dur);
+}
+/* openingsuur van de gekozen dag ophalen via Google Places */
+async function fetchOpens(a){
+  const gpid=ACTGPID||(a&&a.gpid); if(!GMAPS_KEY||!gpid) return;
+  const dayEl=document.getElementById('f_day'); if(!dayEl||!dayEl.value) return;
+  const wd=new Date(dayEl.value+'T12:00').getDay();
+  try{
+    const r=await fetch('https://places.googleapis.com/v1/places/'+gpid+'?languageCode=nl',{
+      headers:{'X-Goog-Api-Key':GMAPS_KEY,'X-Goog-FieldMask':'regularOpeningHours'}});
+    const js=await r.json();
+    const per=js.regularOpeningHours&&js.regularOpeningHours.periods; if(!per) return;
+    const x=per.find(q=>q.open&&q.open.day===wd);
+    const hint=document.getElementById('opensHint'), el=document.getElementById('f_opens');
+    if(!x){ if(hint) hint.textContent='Volgens Google gesloten op de gekozen dag.'; return; }
+    const hm=String(x.open.hour).padStart(2,'0')+':'+String(x.open.minute||0).padStart(2,'0');
+    if(el&&!el.value) el.value=hm;
+    if(hint) hint.textContent='Volgens Google open vanaf '+hm+' op de gekozen dag.';
+  }catch(e){}
 }
 async function saveAct(id,preLat,preLng){
   const title=document.getElementById('f_title').value.trim();
   if(!title){ alert('Geef een omschrijving.'); return; }
   const addr=document.getElementById('f_addr').value.trim();
-  const data={ title, type:pickedType, day:document.getElementById('f_day').value, time:document.getElementById('f_time').value,
+  const data={ title, alias:document.getElementById('f_alias').value.trim(),
+    type:pickedType, day:document.getElementById('f_day').value, time:document.getElementById('f_time').value,
     end:document.getElementById('f_aend').value, timeLocked:pickedTimeLock,
     opens:document.getElementById('f_opens').value, addr, note:document.getElementById('f_note').value.trim() };
   const old=id?cur.data.acts.find(x=>x.id===id):null;
@@ -2824,11 +2868,11 @@ async function delAct(id){ cur.data.acts=cur.data.acts.filter(x=>x.id!==id); awa
 /* plek-detail: foto's, beoordeling en openingsuren zoals in Google Maps */
 async function sheetPlace(actId){
   const a=cur.data.acts.find(x=>x.id===actId); if(!a) return;
-  openSheet('<h2>'+ic('photo')+' <span style="flex:1;min-width:0">'+esc(a.title)+'</span>'+
+  openSheet('<h2>'+ic('photo')+' <span style="flex:1;min-width:0">'+esc(actName(a))+'</span>'+
     (canEdit(cur)?'<button class="hbtn" title="Bewerken" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':'')+'</h2>'+
     '<div id="plc" style="min-height:80px">Laden…</div>'+
     '<div class="btns">'+
-    (a.lat!=null?'<button class="btn ghost" onclick="navTo('+a.lat+','+a.lng+',\''+esc(a.title)+'\')">'+ic('navigation')+' Navigeer</button>':
+    (a.lat!=null?'<button class="btn ghost" onclick="navTo('+a.lat+','+a.lng+',\''+esc(actName(a))+'\')">'+ic('navigation')+' Navigeer</button>':
       (a.addr?'<a class="btn ghost" style="display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" target="_blank" href="'+gmapsUrl(a.addr)+'">'+ic('navigation')+' Maps</a>':''))+
     '<button class="btn primary" onclick="closeSheet()">Sluiten</button></div>');
   const box=()=>document.getElementById('plc');
