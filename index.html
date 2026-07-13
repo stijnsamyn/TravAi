@@ -750,9 +750,14 @@ function render(){
     loadMembers();
   }
 }
-function setTab(x){ tab=x; render(); window.scrollTo(0,0); }
+function setTab(x){
+  tab=x;
+  if(x==='route') routeMode=(cur&&cur.data.locked)?'micro':'macro'; /* vastgezette reis: meteen de lijst */
+  if(x==='diary') diaryMode='list'; /* dagboek opent altijd op de lijst */
+  render(); window.scrollTo(0,0);
+}
 function goHome(){ view='home'; cur=null; if(MAP){MAP.remove();MAP=null;} render(); }
-function openTrip(id){ cur=trips.find(x=>x.id===id); view='trip'; tab='route'; dayView=null; diaryMode=null; MAPVIEW=null; CATACTIVE=null; CATRES=[]; mapOn=window.innerWidth>=600; render(); window.scrollTo(0,0); }
+function openTrip(id){ cur=trips.find(x=>x.id===id); view='trip'; tab='route'; routeMode=(cur&&cur.data.locked)?'micro':'macro'; dayView=null; diaryMode=null; MAPVIEW=null; CATACTIVE=null; CATRES=[]; mapOn=window.innerWidth>=600; render(); window.scrollTo(0,0); }
 function toggleMap(){ mapOn=!mapOn; render(); }
 
 /* ================= INSTELLINGEN ================= */
@@ -911,8 +916,10 @@ function renderRoute(){
   let h='<div class="nights-head"><div class="bigdonut" style="--p:'+pct+'%" data-t="'+pl+'/'+tot+'"></div><div class="lbl">nachten gepland</div></div>'+
     '<div class="tripstats" id="tripstats"></div>'+
     '<div class="seg"><button class="'+(routeMode==='macro'?'on':'')+'" onclick="routeMode=\'macro\';render()">'+ic('map-pin')+' Bestemmingen</button>'+
-    '<button class="'+(routeMode==='micro'?'on':'')+'" onclick="routeMode=\'micro\';render()">'+ic('timeline')+' Alles in volgorde</button></div>';
+    '<button class="'+(routeMode==='micro'?'on':'')+'" onclick="routeMode=\'micro\';render()">'+ic('timeline')+' Lijst</button></div>';
   if(routeMode==='micro') return h+renderSchema();
+  const locked=!!t.data.locked;
+  if(edit) h+='<div style="margin:-4px 2px 12px"><button class="chip '+(locked?'':'add')+'" onclick="toggleLock()">'+ic(locked?'lock':'lock-open')+' '+(locked?'Vastgezet — tik om te ontgrendelen':'Zet bestemmingen & nachten vast')+'</button></div>';
   if(!t.data.stops.length) h+='<div class="empty"><div class="big">'+ic('map-pin')+'</div>Voeg je eerste bestemming toe.</div>';
   const rmap={}; rs.forEach(r=>{ rmap[r.stop.id]=r; });
   let num=0, ai=0, seen=false;
@@ -932,12 +939,13 @@ function renderRoute(){
       h+='<div class="leg"><button class="legpill" id="leg-'+s.id+'" onclick="sheetLeg(\''+s.id+'\')">'+ic(MODES[s.mode||'car'][0])+' berekenen…</button></div>';
     }
     seen=true;
+    const canStops=edit&&!locked;
     const hs=hotelsForStop(t,r), acts=actsForRange(t,r);
     const dts = r.from ? (s.isHome ? fmtKort(r.from)+' · Thuis — '+(i===0?'vertrekpunt':'eindpunt') : (s.nights>0 ? fmtKort(r.from)+' – '+fmtKort(r.to) : fmtKort(r.from)+' · Tussenstop')) : 'datums instellen';
     if(!s.isHome) num++;
     h+='<div class="stop" data-stop="'+s.id+'">'+
       '<div class="srow">'+
-      '<div class="num'+(edit?' draggable':'')+'" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'"'+(edit?' title="Sleep om de volgorde te wijzigen" onpointerdown="stopGripDown(event,\''+s.id+'\')"':'')+'>'+(s.isHome?ic('home'):num)+'</div>'+
+      '<div class="num'+(canStops?' draggable':'')+'" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'"'+(canStops?' title="Sleep om de volgorde te wijzigen" onpointerdown="stopGripDown(event,\''+s.id+'\')"':'')+'>'+(s.isHome?ic('home'):num)+'</div>'+
       '<div class="mid"><h3'+(edit?' style="cursor:pointer" title="Tik om te bewerken" onclick="sheetStop(\''+s.id+'\')"':'')+'>'+esc(s.name)+'</h3><div class="dts">'+dts+'</div>'+
       '<div class="chips">'+
         (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">'+ic('bed')+' '+esc(hotName(x))+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
@@ -948,14 +956,14 @@ function renderRoute(){
       '</div>'+
       '</div>'+
       (s.isHome?'':'<div class="stepper"><div class="row">'+
-        (edit?'<button onclick="chgNights(\''+s.id+'\',-1)">−</button>':'')+
+        (canStops?'<button onclick="chgNights(\''+s.id+'\',-1)">−</button>':'')+
         '<span class="n">'+s.nights+'</span>'+
-        (edit?'<button onclick="chgNights(\''+s.id+'\',1)">+</button>':'')+
+        (canStops?'<button onclick="chgNights(\''+s.id+'\',1)">+</button>':'')+
       '</div><span class="lbl">'+(s.nights===1?'nacht':'nachten')+'</span></div>')+
       '</div>'+
     '</div>';
   });
-  if(edit){
+  if(edit&&!locked){
     h+='<div class="adddest">'+ic('search')+'<input id="destIn" placeholder="Nieuwe bestemming toevoegen…" autocomplete="off" oninput="destInput(this.value)">'+
        '<div class="ac" id="acList"></div></div>';
     if(SETTINGS.home){
@@ -975,6 +983,14 @@ async function chgNights(id,d){
   const s=cur.data.stops.find(x=>x.id===id);
   s.nights=Math.max(0,(s.nights||0)+d);
   await pushData(); render();
+}
+/* bestemmingen & nachten vastzetten: geen wijzigingen meer, en Plan opent op de lijst */
+async function toggleLock(){
+  if(!canEdit(cur)) return;
+  if(cur.data.locked) delete cur.data.locked; else cur.data.locked=true;
+  await pushData();
+  routeMode=cur.data.locked?'micro':'macro';
+  render();
 }
 /* bestemming tijdelijk uit de reis halen: route, datums en totalen rekenen meteen zonder deze stop */
 async function toggleStopOff(id){
@@ -1586,6 +1602,7 @@ function renderDays(){
 }
 /* activiteitskaarten van één dag (gedeeld door Dagen- en Vandaag-tab) */
 function buildActCards(acts,edit){
+  /* in het dagboek geen verplaats-knoppen: grote bewerkingen gebeuren in Plan */
   let h='';
   if(!acts.length) h+='<div class="card" style="color:var(--muted);font-size:13px">Nog niets gepland.</div>';
   let prev=null;
@@ -1593,9 +1610,7 @@ function buildActCards(acts,edit){
     const icn=(ACT_TYPES[a.type]||ACT_TYPES.act)[0];
     if(prev) h+='<div class="trav" id="trav-'+a.id+'"></div>';
     const overlap=prev&&a.time&&((prev.end&&a.time<prev.end)||(!prev.end&&prev.time&&prev.time===a.time));
-    h+='<div class="card'+(a.proposed?' proposed':'')+'">'+(edit?
-      '<button class="kebab" style="right:76px" title="Dag eerder" onclick="moveAct(\''+a.id+'\',-1)">'+ic('chevron-left')+'</button>'+
-      '<button class="kebab" style="right:42px" title="Dag later" onclick="moveAct(\''+a.id+'\',1)">'+ic('chevron-right')+'</button>'+
+    h+='<div class="card'+(a.proposed?' proposed':'')+'" data-act="'+a.id+'">'+(edit?
       '<button class="kebab" onclick="sheetAct(\''+a.id+'\')">'+ic('pencil')+'</button>':'')+
       '<div class="act"><div class="time">'+(a.time?esc(a.time):'—')+(a.end?'<div class="end">tot '+esc(a.end)+'</div>':'')+'</div><div class="body">'+
       '<h4>'+ic(icn)+' '+esc(a.title)+'</h4>'+
@@ -1859,10 +1874,7 @@ async function dragEnd(){
 
 /* ================= DAGBOEK-TAB ================= */
 function renderDiary(){
-  if(!diaryMode){
-    const days=daysOf(cur), td=new Date().toISOString().slice(0,10);
-    diaryMode=days.includes(td)?'micro':'macro'; /* tijdens de reis: open op vandaag */
-  }
+  if(!diaryMode) diaryMode='list'; /* dagboek opent op de lijst */
   let h='<div class="seg"><button class="'+(diaryMode==='macro'?'on':'')+'" onclick="diaryMode=\'macro\';render()">'+ic('calendar-month')+' Kalender</button>'+
     '<button class="'+(diaryMode==='list'?'on':'')+'" onclick="diaryMode=\'list\';render()">'+ic('layout-list')+' Lijst</button>'+
     '<button class="'+(diaryMode==='micro'?'on':'')+'" onclick="diaryMode=\'micro\';render()">'+ic('sun')+' Dag</button></div>';
@@ -2327,16 +2339,25 @@ function exportIcs(){
    Het sjabloon is zo geschreven dat je het rechtstreeks aan een AI (bv. Claude) kunt geven. */
 const MD_UITLEG=[
 '<!--',
-'INSTRUCTIES (voor AI of mens) — verwijder dit blok niet, het wordt bij import genegeerd:',
-'- Elke bestemming: "## Plaatsnaam (N nachten)" — gebruik de officiële plaatsnaam.',
-'- Daaronder per dag: "Dag 1:", "Dag 2:", ...',
+'OPDRACHT VOOR DE AI-ASSISTENT (Claude, ChatGPT, Gemini, ...):',
+'Je bent een ervaren reisagent. Vul dit reisschema aan met concrete activiteitvoorstellen',
+'per bestemming en per dag. Geef het VOLLEDIGE document terug in exact hetzelfde formaat,',
+'inclusief dit instructieblok; de gebruiker plakt jouw antwoord rechtstreeks in de reisapp.',
+'',
+'FORMAAT (strikt volgen, anders mislukt de import):',
+'- Elke bestemming: "## Plaatsnaam (N nachten)" — officiële plaatsnaam; namen, volgorde en nachten NIET wijzigen.',
+'- Daaronder per dag: "Dag 1:", "Dag 2:", ... (dag 1 = aankomstdag in die plaats)',
 '- Elke activiteit op één regel: "- 10:00-12:00 Titel [type] | korte reden waarom dit de moeite is"',
-'  * tijd is optioneel: "10:00" of "10:00-12:00"',
+'  * tijd is optioneel: "10:00" of "10:00-12:00", realistisch tussen 09:00 en 20:00, hou rekening met reistijd ertussen',
 '  * type is optioneel, kies uit: sight, museum, castle, nature, sport, shop, food, free, act',
-'  * alles na | is een notitie (optioneel)',
-'- Optioneel per bestemming: "Hotel: Naam, Adres"',
-'- Stel 2 à 3 activiteiten per dag voor, mix hoogtepunten met lokale pareltjes.',
-'- Gebruik alléén plekken die echt bestaan, met hun officiële naam (vindbaar in Google Maps).',
+'  * alles na | is een korte notitie in het Nederlands (optioneel maar gewenst)',
+'- Optioneel per bestemming: "Hotel: Naam, Adres" (alleen als er nog geen hotel staat)',
+'',
+'INHOUD:',
+'- Stel 2 à 3 activiteiten per dag voor; mix bekende hoogtepunten met lokale pareltjes.',
+'- Vervang regels zoals "- (stel hier 2 à 3 activiteiten voor)" door echte voorstellen.',
+'- Activiteiten die al ingevuld staan laten staan en NIET dubbel voorstellen.',
+'- Gebruik alléén plekken die echt bestaan, met hun officiële naam zoals vindbaar in Google Maps.',
 '-->'].join('\n');
 function mdTemplate(){
   return '# Mijn reis\n\nStart: '+new Date().toISOString().slice(0,10)+'\nEinde: '+addDays(new Date().toISOString().slice(0,10),9)+'\n\n'+MD_UITLEG+
@@ -2345,7 +2366,7 @@ function mdTemplate(){
 function tripToMd(t,asTemplate){
   let md='# '+(t.name||'Reis')+'\n\n';
   if(t.start_date) md+='Start: '+t.start_date+'\nEinde: '+t.end_date+'\n\n';
-  if(asTemplate) md+=MD_UITLEG+'\n\nVul dit reisschema aan met voorstellen. Sla dagen met "(vrij houden)" niet over maar doe ook daar voorstellen. Herhaal bestaande activiteiten niet.\n\n';
+  if(asTemplate) md+=MD_UITLEG+'\n\n';
   stopRanges(t).forEach(r=>{
     const s=r.stop;
     if(s.isHome) return;
