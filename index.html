@@ -615,6 +615,8 @@ const ACT_TYPES={act:['target','Activiteit'],sight:['star','Bezienswaardigheid']
 /* Google/OSM-plaatstype naar activiteitstype */
 const GTYPE_MAP={museum:'museum',art_gallery:'museum',gallery:'museum',historical_landmark:'castle',castle:'castle',ruins:'castle',church:'sight',tourist_attraction:'sight',attraction:'sight',viewpoint:'sight',monument:'sight',memorial:'sight',park:'nature',zoo:'nature',national_park:'nature',garden:'nature',hiking_area:'nature',stadium:'sport',gym:'sport',sports_complex:'sport',swimming_pool:'sport',shopping_mall:'shop',clothing_store:'shop',department_store:'shop',supermarket:'shop',grocery_store:'shop',market:'shop',restaurant:'food',cafe:'food',bar:'food',bakery:'food',fast_food_restaurant:'food',ice_cream_shop:'food',electric_vehicle_charging_station:'transport',gas_station:'transport',parking:'transport',train_station:'transport',airport:'flight',amusement_park:'act',theme_park:'act'};
 const EXP_CATS={stay:['bed','Verblijf'],food:['tools-kitchen-2','Eten'],transport:['car','Vervoer'],fun:['ticket','Activiteiten'],shop:['shopping-bag','Shopping'],other:['package','Overig']};
+/* maaltijdregime van een hotel; korte tag voor in de weergave */
+const MEAL_PLANS={none:['','Geen maaltijden',''],bb:['coffee','Ontbijt','ontbijt'],half:['tools-kitchen-2','Halfpension','halfpension'],full:['tools-kitchen-2','Volpension','volpension'],allin:['glass-cocktail','All-inclusive','all-in']};
 const TRIP_ICONS=['plane','beach','mountain','building-skyscraper','car','ship','snowflake','tent','pizza','compass','bike','camera'];
 const MODES={car:['car','Auto'],moto:['motorbike','Moto'],taxi:['car','Taxi'],bus:['bus','Bus'],train:['train','Trein'],plane:['plane','Vlucht'],boat:['ship','Boot'],bike:['bike','Fiets'],foot:['walk','Te voet']};
 const MODE_SPEED={train:95,plane:750,boat:32}; // km/u voor tijdschatting
@@ -792,6 +794,7 @@ function render(){
       '<span style="flex:1"></span>'+
       '<button class="pill'+(tab==='route'?' on':'')+'" onclick="setTab(\'route\')">'+ic('route')+' Plan</button>'+
       '<button class="pill'+(tab==='diary'?' on':'')+'" onclick="setTab(\'diary\')">'+ic('book')+' Dagboek</button>'+
+      (SETTINGS.showBudget?'<button class="pill'+(tab==='budget'?' on':'')+'" onclick="setTab(\'budget\')">'+ic('wallet')+' Budget</button>':'')+
       '<span style="flex:1"></span>'+
       '<button class="pill" title="'+pl+' van '+tot+' nachten gepland" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+'</button>'+
       '<button class="hbtn person-btn" id="avatars" title="Reisgenoten" onclick="sheetShare()">'+ic('users')+'<span class="cnt"></span></button>'+
@@ -800,7 +803,6 @@ function render(){
       '<button class="hbtn" title="Instellingen" onclick="sheetSettings()">'+ic('settings')+'</button>'+
       '<button class="hbtn share-btn" title="Delen" onclick="sheetShare()">'+ic('share')+'</button>';
     const tabs=[];
-    if(SETTINGS.showBudget) tabs.push(['budget','wallet','Budget']);
     if(SETTINGS.showLists) tabs.push(['lists','list-check','Lijsten']);
     if(tabs.length){
       tabbar.style.display='flex';
@@ -1052,7 +1054,7 @@ function renderRoute(){
       '<div class="num'+(canMove?' draggable':'')+'" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'"'+(canMove?' title="Sleep om de volgorde te wijzigen" onpointerdown="stopGripDown(event,\''+s.id+'\')"':'')+'>'+(s.isHome?ic('home'):num)+'</div>'+
       '<div class="mid"><h3'+(edit?' style="cursor:pointer" title="Tik om te bewerken" onclick="sheetStop(\''+s.id+'\')"':'')+'>'+esc(s.name)+(dlock?' <span class="bookedlock" title="Datum vast: hotel geboekt">'+ic('lock')+'</span>':'')+'</h3><div class="dts">'+dts+'</div>'+
       '<div class="chips">'+
-        (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep'+(x.booked?' booked':'')+'" onclick="sheetHotel(\''+x.id+'\')">'+ic(x.booked?'lock':'bed')+' '+esc(hotName(x))+(n>1?' · '+n+' nachten':'')+(x.cost!=null&&x.cost!==''?' · '+eur(+x.cost||0):'')+'</button>';}).join('') :
+        (hs.length? hs.map(x=>{const n=hotelNights(x),ml=(MEAL_PLANS[x.meal]||[])[2];return '<button class="chip sleep'+(x.booked?' booked':'')+'" onclick="sheetHotel(\''+x.id+'\')">'+ic(x.booked?'lock':'bed')+' '+esc(hotName(x))+(n>1?' · '+n+' nachten':'')+(ml?' · '+ml:'')+(x.cost!=null&&x.cost!==''?' · '+eur(+x.cost||0):'')+'</button>';}).join('') :
           (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">'+ic('plus')+' slaapplek</button>':''))+
         (acts.length&&s.nights>0?'<button class="chip act" onclick="routeMode=\'micro\';render()">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
         (actsEditable(t)&&r.from&&s.nights>0?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
@@ -1178,8 +1180,9 @@ function renderStopDays(t,r,edit){
   const hs=hotelsForStop(t,r);
   hs.forEach(x=>{
     const n=hotelNights(x);
+    const ml=(MEAL_PLANS[x.meal]||[])[2];
     h+='<div class="mini sleepbg">'+ic(x.booked?'lock':'bed')+'<button class="ttl" onclick="sheetHotel(\''+x.id+'\')">'+esc(hotName(x))+'</button>'+
-       '<span class="sub">'+(x.cin?fmtKort(x.cin)+' → '+fmtKort(x.cout):'')+(n?' · '+n+(n===1?' nacht':' nachten'):'')+(x.cost!=null&&x.cost!==''?' · '+eur(+x.cost||0):'')+'</span></div>';
+       '<span class="sub">'+(x.cin?fmtKort(x.cin)+' → '+fmtKort(x.cout):'')+(n?' · '+n+(n===1?' nacht':' nachten'):'')+(ml?' · '+ml:'')+(x.cost!=null&&x.cost!==''?' · '+eur(+x.cost||0):'')+'</span></div>';
   });
   if(!hs.length&&edit&&s.nights>0)
     h+='<div class="mini">'+ic('bed')+'<button class="ttl" onclick="sheetHotel(null,\''+s.id+'\')">+ slaapplek voor '+s.nights+(s.nights===1?' nacht':' nachten')+'</button></div>';
@@ -3268,6 +3271,7 @@ function sheetHotel(id,stopId){
     '<div class="field"><label>Adres</label><input id="f_haddr" placeholder="Hauptstraße 12, München" value="'+esc(x?x.addr:'')+'"></div>'+
     '<div class="row2"><div class="field"><label>Check-in</label><input id="f_cin" type="date"'+(x&&x.booked?' disabled':'')+' value="'+(x?(x.cin||''):cin)+'"></div>'+
     '<div class="field"><label>Check-out</label><input id="f_cout" type="date"'+(x&&x.booked?' disabled':'')+' value="'+(x?(x.cout||''):cout)+'"></div></div>'+
+    '<div class="field"><label>Maaltijdregime</label><select id="f_hmeal">'+Object.entries(MEAL_PLANS).map(([k,v])=>'<option value="'+k+'" '+((x?(x.meal||'none'):'none')===k?'selected':'')+'>'+v[1]+'</option>').join('')+'</select></div>'+
     '<div class="field" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="f_hbooked" style="width:20px;height:20px;accent-color:var(--green);flex:none" '+(x&&x.booked?'checked':'')+' onchange="toggleHotBooked()">'+
     '<span style="font-size:14px;font-weight:600">'+ic('lock')+' Geboekt — datum van hotel en bestemming liggen vast</span></div>'+
     '<div class="row2"><div class="field"><label>Kost (€)</label><input id="f_hcost" type="number" step="0.01" inputmode="decimal" value="'+(x&&x.cost!=null?x.cost:'')+'"></div>'+
@@ -3293,6 +3297,7 @@ async function saveHotel(id,stopId){
     ref:document.getElementById('f_ref').value.trim(), tel:document.getElementById('f_tel').value.trim(),
     note:document.getElementById('f_hnote').value.trim(),
     booked:document.getElementById('f_hbooked').checked,
+    meal:document.getElementById('f_hmeal').value,
     cost:isNaN(hcost)?null:hcost, deposit:isNaN(hdep)?null:hdep,
     paid:document.getElementById('f_hpaid').checked };
   const old=id?cur.data.hotels.find(y=>y.id===id):null;
