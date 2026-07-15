@@ -68,6 +68,13 @@
   .pill .ti{font-size:15px;color:var(--green-dark)}
   .pill.on{background:var(--green-soft);color:var(--green-ink);border-color:transparent}
   .pill.on .ti{color:var(--green-ink)}
+  /* smalle schermen: Plan/Dagboek/Budget worden compacte icoon-knoppen zodat de topbar op één regel blijft */
+  @media(max-width:600px){
+    #hdr{gap:7px}
+    .pill .plbl{display:none}
+    .pill{padding:8px 11px}
+    .htitle .sub{display:none}
+  }
   .donut{width:20px;height:20px;border-radius:50%;flex:none;position:relative;background:conic-gradient(var(--green) var(--p,0%), #e6ecf0 0)}
   .donut::after{content:'';position:absolute;inset:4px;border-radius:50%;background:#fff}
   .hbtn.share-btn{
@@ -792,9 +799,9 @@ function render(){
       '<div class="sub">'+(cur.start_date?fmtD(cur.start_date)+' – '+fmtDY(cur.end_date):'nog geen datums')+'</div></div></div>'+
       (edit?'<button class="lockbtn'+(lv?' on':'')+'" title="'+esc(lockInfo.lbl+' — '+lockInfo.hint)+'" onclick="cycleLock()">'+ic(lockInfo.icon)+'</button>':'')+
       '<span style="flex:1"></span>'+
-      '<button class="pill'+(tab==='route'?' on':'')+'" onclick="setTab(\'route\')">'+ic('route')+' Plan</button>'+
-      '<button class="pill'+(tab==='diary'?' on':'')+'" onclick="setTab(\'diary\')">'+ic('book')+' Dagboek</button>'+
-      (SETTINGS.showBudget?'<button class="pill'+(tab==='budget'?' on':'')+'" onclick="setTab(\'budget\')">'+ic('wallet')+' Budget</button>':'')+
+      '<button class="pill'+(tab==='route'?' on':'')+'" title="Plan" onclick="setTab(\'route\')">'+ic('route')+'<span class="plbl">Plan</span></button>'+
+      '<button class="pill'+(tab==='diary'?' on':'')+'" title="Dagboek" onclick="setTab(\'diary\')">'+ic('book')+'<span class="plbl">Dagboek</span></button>'+
+      (SETTINGS.showBudget?'<button class="pill'+(tab==='budget'?' on':'')+'" title="Budget" onclick="setTab(\'budget\')">'+ic('wallet')+'<span class="plbl">Budget</span></button>':'')+
       '<span style="flex:1"></span>'+
       '<button class="pill" title="'+pl+' van '+tot+' nachten gepland" onclick="setTab(\'route\')"><span class="donut" style="--p:'+pct+'%"></span>'+pl+'/'+tot+'</button>'+
       '<button class="hbtn person-btn" id="avatars" title="Reisgenoten" onclick="sheetShare()">'+ic('users')+'<span class="cnt"></span></button>'+
