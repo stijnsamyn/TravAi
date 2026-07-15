@@ -357,6 +357,11 @@
   .bud-total{background:linear-gradient(135deg,var(--green),var(--green-dark));color:#fff;border-radius:var(--radius);padding:18px;margin-bottom:14px;text-align:center}
   .bud-total .amt{font-size:32px;font-weight:800}
   .bud-total .lbl{font-size:13px;opacity:.9}
+  .bud-total .lbl b{opacity:1}
+  .budbar{height:7px;border-radius:99px;background:rgba(255,255,255,.28);overflow:hidden;margin:12px 22px 2px}
+  .budbar span{display:block;height:100%;background:#fff;border-radius:99px}
+  .miniedit{background:rgba(255,255,255,.25);border:none;color:#fff;cursor:pointer;border-radius:6px;padding:2px 6px;vertical-align:middle}
+  .miniedit .ti{font-size:13px}
   .bud-cat{display:flex;justify-content:space-between;font-size:14px;padding:6px 2px}
   .bud-cat span{display:inline-flex;align-items:center;gap:7px}
   .bud-cat .ti{color:var(--green-dark)}
@@ -1047,7 +1052,7 @@ function renderRoute(){
       '<div class="num'+(canMove?' draggable':'')+'" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'"'+(canMove?' title="Sleep om de volgorde te wijzigen" onpointerdown="stopGripDown(event,\''+s.id+'\')"':'')+'>'+(s.isHome?ic('home'):num)+'</div>'+
       '<div class="mid"><h3'+(edit?' style="cursor:pointer" title="Tik om te bewerken" onclick="sheetStop(\''+s.id+'\')"':'')+'>'+esc(s.name)+(dlock?' <span class="bookedlock" title="Datum vast: hotel geboekt">'+ic('lock')+'</span>':'')+'</h3><div class="dts">'+dts+'</div>'+
       '<div class="chips">'+
-        (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep'+(x.booked?' booked':'')+'" onclick="sheetHotel(\''+x.id+'\')">'+ic(x.booked?'lock':'bed')+' '+esc(hotName(x))+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
+        (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep'+(x.booked?' booked':'')+'" onclick="sheetHotel(\''+x.id+'\')">'+ic(x.booked?'lock':'bed')+' '+esc(hotName(x))+(n>1?' · '+n+' nachten':'')+(x.cost!=null&&x.cost!==''?' · '+eur(+x.cost||0):'')+'</button>';}).join('') :
           (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">'+ic('plus')+' slaapplek</button>':''))+
         (acts.length&&s.nights>0?'<button class="chip act" onclick="routeMode=\'micro\';render()">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
         (actsEditable(t)&&r.from&&s.nights>0?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
@@ -1173,8 +1178,8 @@ function renderStopDays(t,r,edit){
   const hs=hotelsForStop(t,r);
   hs.forEach(x=>{
     const n=hotelNights(x);
-    h+='<div class="mini sleepbg">'+ic('bed')+'<button class="ttl" onclick="sheetHotel(\''+x.id+'\')">'+esc(hotName(x))+'</button>'+
-       '<span class="sub">'+(x.cin?fmtKort(x.cin)+' → '+fmtKort(x.cout):'')+(n?' · '+n+(n===1?' nacht':' nachten'):'')+'</span></div>';
+    h+='<div class="mini sleepbg">'+ic(x.booked?'lock':'bed')+'<button class="ttl" onclick="sheetHotel(\''+x.id+'\')">'+esc(hotName(x))+'</button>'+
+       '<span class="sub">'+(x.cin?fmtKort(x.cin)+' → '+fmtKort(x.cout):'')+(n?' · '+n+(n===1?' nacht':' nachten'):'')+(x.cost!=null&&x.cost!==''?' · '+eur(+x.cost||0):'')+'</span></div>';
   });
   if(!hs.length&&edit&&s.nights>0)
     h+='<div class="mini">'+ic('bed')+'<button class="ttl" onclick="sheetHotel(null,\''+s.id+'\')">+ slaapplek voor '+s.nights+(s.nights===1?' nacht':' nachten')+'</button></div>';
@@ -1738,6 +1743,8 @@ function buildActCards(acts,edit){
       (overlap?'<div class="overlap">Let op: overlapt met vorige activiteit</div>':'')+
       (a.time&&a.end&&hmToMin(a.end)>hmToMin(a.time)?'<span class="opens-tag" style="background:var(--bg);color:var(--muted)">'+ic('clock')+' '+durTxt(hmToMin(a.end)-hmToMin(a.time))+'</span> ':'')+
       (a.opens?'<span class="opens-tag">opent om '+esc(a.opens)+'</span>':'')+
+      (a.booked?'<span class="opens-tag" style="background:var(--green-soft);color:var(--green-ink)">'+ic('ticket')+' geboekt'+(a.ref?' · '+esc(a.ref):'')+'</span> ':'')+
+      (a.cost!=null&&a.cost!==''?'<span class="opens-tag" style="background:var(--green-soft);color:var(--green-ink)">'+ic('wallet')+' '+eur(+a.cost||0)+(costDue(a)>0?' · '+eur(costDue(a))+' open':' · betaald')+'</span> ':'')+
       (a.addr?'<div class="addr">'+ic('map-pin')+' '+esc(a.addr)+'</div>':'')+
       ((a.addr||a.gpid||a.photo)?'<button class="maplink iconly" style="border:none;cursor:pointer" title="Info &amp; foto\'s" onclick="sheetPlace(\''+a.id+'\')">'+ic('photo')+'</button>':'')+
       (a.lat!=null?'<button class="maplink iconly" style="border:none;cursor:pointer" title="Navigeer" onclick="navTo('+a.lat+','+a.lng+',\''+esc(actName(a))+'\')">'+ic('navigation')+'</button>':
@@ -2379,10 +2386,20 @@ function renderBudget(){
       return '<div class="bud-cat"><span>'+ic(pair[0])+' '+pair[1]+'</span><b>'+eur(perCat[c])+'</b></div>';
     }).join('')+'</div>';
   }
-  /* de som onderaan */
-  h+='<div class="bud-total" style="margin:14px 0 0"><div class="lbl">Totale kost</div><div class="amt">'+eur(total)+'</div>'+
-     (due>0?'<div class="lbl" style="margin-top:6px">nog te betalen: <b>'+eur(due)+'</b></div>':
-      '<div class="lbl" style="margin-top:6px">'+ic('check')+' alles betaald</div>')+'</div>';
+  /* de som onderaan, met reisbudget-doel */
+  const goal=+t.data.budget||0;
+  h+='<div class="bud-total" style="margin:14px 0 0"><div class="lbl">Totale kost'+
+     (edit?' <button class="miniedit" onclick="sheetBudget()" title="Reisbudget instellen">'+ic('pencil')+'</button>':'')+'</div>'+
+     '<div class="amt">'+eur(total)+'</div>';
+  if(goal>0){
+    const rem=goal-total, pct=Math.max(0,Math.min(100,Math.round(total/goal*100)));
+    h+='<div class="budbar"><span style="width:'+pct+'%'+(rem<0?';background:#ffd7d7':'')+'"></span></div>'+
+       '<div class="lbl" style="margin-top:7px">van '+eur(goal)+' budget · '+(rem>=0?eur(rem)+' over':'<b>'+eur(-rem)+' te veel</b>')+'</div>';
+  }
+  h+=(due>0?'<div class="lbl" style="margin-top:6px">nog te betalen: <b>'+eur(due)+'</b></div>':
+      '<div class="lbl" style="margin-top:6px">'+ic('check')+' alles betaald</div>')+
+     (goal<=0&&edit?'<div style="margin-top:10px"><button class="chip add" style="background:rgba(255,255,255,.22);color:#fff" onclick="sheetBudget()">'+ic('target')+' Reisbudget instellen</button></div>':'')+
+     '</div>';
   if(edit) h+='<button class="fab" onclick="sheetExp()">'+ic('plus')+'</button>';
   return h;
 }
@@ -3325,6 +3342,23 @@ async function saveExp(id){
   await pushData(); closeSheet(); render();
 }
 async function delExp(id){ cur.data.exps=cur.data.exps.filter(y=>y.id!==id); await pushData(); closeSheet(); render(); }
+
+/* --- reisbudget-doel --- */
+function sheetBudget(){
+  const t=cur;
+  openSheet('<h2>'+ic('target')+' Reisbudget</h2>'+
+    '<div class="field"><label>Totaal budget voor deze reis (€)</label><input id="f_budget" type="number" step="1" inputmode="decimal" value="'+(t.data.budget!=null?t.data.budget:'')+'"></div>'+
+    '<div class="set-hint" style="margin:-6px 0 12px">Leeg laten = geen doel. Met een budget toont het budgetscherm hoeveel je nog over hebt en of je erover gaat.</div>'+
+    '<div class="btns">'+(t.data.budget!=null?'<button class="btn danger" onclick="clearBudget()">'+ic('trash')+'</button>':'')+
+    '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
+    '<button class="btn primary" onclick="saveBudget()">Bewaar</button></div>');
+}
+async function saveBudget(){
+  const v=parseFloat(document.getElementById('f_budget').value);
+  if(isNaN(v)) delete cur.data.budget; else cur.data.budget=v;
+  await pushData(); closeSheet(); render();
+}
+async function clearBudget(){ delete cur.data.budget; await pushData(); closeSheet(); render(); }
 
 /* ================= BOOT ================= */
 (function(){
