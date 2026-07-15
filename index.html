@@ -168,6 +168,10 @@
   .chip:hover{filter:brightness(.97)}
   .chip.add{background:var(--green-soft);color:var(--green-ink)}
   .chip.sleep{background:var(--green-soft);color:var(--green-ink)}
+  .chip.sleep.booked{background:linear-gradient(135deg,var(--green),var(--green-dark));color:#fff}
+  .bookedlock{color:var(--green-dark);vertical-align:middle}
+  .bookedlock .ti{font-size:15px}
+  .stop.booked{box-shadow:inset 2px 0 0 var(--green)}
   .chip.act{background:var(--amber-soft);color:#8a5a00}
   .chip.ai{background:linear-gradient(135deg,#f3f0ff,#ece5ff);color:#5f3dc4;box-shadow:inset 0 0 0 1px #ded2ff}
   .card.proposed{border:1.5px dashed #b197fc;background:#fdfcff}
@@ -669,6 +673,16 @@ function plannedNights(t){ return activeStops(t).reduce((s,x)=>s+(x.nights||0),0
 /* uitgeschakelde bestemmingen (s.off) tellen nergens mee: zo zie je meteen de impact op de reis */
 function activeStops(t){ return t.data.stops.filter(s=>!s.off); }
 function hotelNights(h){ if(!h.cin||!h.cout) return 0; return Math.max(0,Math.round((new Date(h.cout)-new Date(h.cin))/86400000)); }
+/* geboekt hotel = check-in/-out en de bijhorende bestemming liggen vast */
+function stopDateLocked(t,s){
+  if(!s||s.isHome) return false;
+  const r=stopRanges(t).find(rr=>rr.stop.id===s.id);
+  if(!r) return false;
+  return hotelsForStop(t,r).some(h=>h.booked);
+}
+/* kost-regel: reeds betaald (aanbetaling of volledig) vs. nog te betalen */
+function costPrepaid(x){ return x.paid?(+x.amount||0):Math.min(+x.amount||0,+x.deposit||0); }
+function costDue(x){ return x.paid?0:Math.max(0,(+x.amount||0)-(+x.deposit||0)); }
 function hotName(h){ return (h&&(h.alias||h.name))||''; } /* alias krijgt overal voorrang */
 function actName(a){ return (a&&(a.alias||a.title))||''; }
 /* datumbereik per stop: aankomst = start + som nachten ervoor */
@@ -691,7 +705,8 @@ function rangeDays(r){
 }
 function actsForRange(t,r){ const ds=rangeDays(r); return t.data.acts.filter(a=>ds.includes(a.day)); }
 function hotelsForStop(t,r){
-  return t.data.hotels.filter(h=> h.stopId===r.stop.id || (!h.stopId && h.cin && r.from && h.cin>=r.from && h.cin<(r.to||r.from)) );
+  return t.data.hotels.filter(h=> h.stopId===r.stop.id || (!h.stopId && h.cin && r.from && h.cin>=r.from && h.cin<(r.to||r.from)) )
+    .sort((a,b)=>(b.booked?1:0)-(a.booked?1:0)); /* geboekt hotel is leidend: als slaappunt en op de route */
 }
 function hotelForDay(t,day){
   const rs=stopRanges(t);
@@ -1022,15 +1037,17 @@ function renderRoute(){
     }
     seen=true;
     const canStops=edit&&!locked;
+    const dlock=stopDateLocked(t,s); /* geboekt hotel: datum en nachten van deze bestemming liggen vast */
+    const canMove=canStops&&!dlock;
     const hs=hotelsForStop(t,r), acts=actsForRange(t,r);
     const dts = r.from ? (s.isHome ? fmtKort(r.from)+' · Thuis — '+(i===0?'vertrekpunt':'eindpunt') : (s.nights>0 ? fmtKort(r.from)+' – '+fmtKort(r.to) : fmtKort(r.from)+' · Tussenstop')) : 'datums instellen';
     if(!s.isHome) num++;
-    h+='<div class="stop" data-stop="'+s.id+'">'+
+    h+='<div class="stop'+(dlock?' booked':'')+'" data-stop="'+s.id+'">'+
       '<div class="srow">'+
-      '<div class="num'+(canStops?' draggable':'')+'" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'"'+(canStops?' title="Sleep om de volgorde te wijzigen" onpointerdown="stopGripDown(event,\''+s.id+'\')"':'')+'>'+(s.isHome?ic('home'):num)+'</div>'+
-      '<div class="mid"><h3'+(edit?' style="cursor:pointer" title="Tik om te bewerken" onclick="sheetStop(\''+s.id+'\')"':'')+'>'+esc(s.name)+'</h3><div class="dts">'+dts+'</div>'+
+      '<div class="num'+(canMove?' draggable':'')+'" style="border-color:'+STOPCOLORS[i%STOPCOLORS.length]+';color:'+STOPCOLORS[i%STOPCOLORS.length]+'"'+(canMove?' title="Sleep om de volgorde te wijzigen" onpointerdown="stopGripDown(event,\''+s.id+'\')"':'')+'>'+(s.isHome?ic('home'):num)+'</div>'+
+      '<div class="mid"><h3'+(edit?' style="cursor:pointer" title="Tik om te bewerken" onclick="sheetStop(\''+s.id+'\')"':'')+'>'+esc(s.name)+(dlock?' <span class="bookedlock" title="Datum vast: hotel geboekt">'+ic('lock')+'</span>':'')+'</h3><div class="dts">'+dts+'</div>'+
       '<div class="chips">'+
-        (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep" onclick="sheetHotel(\''+x.id+'\')">'+ic('bed')+' '+esc(hotName(x))+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
+        (hs.length? hs.map(x=>{const n=hotelNights(x);return '<button class="chip sleep'+(x.booked?' booked':'')+'" onclick="sheetHotel(\''+x.id+'\')">'+ic(x.booked?'lock':'bed')+' '+esc(hotName(x))+(n>1?' · '+n+' nachten':'')+'</button>';}).join('') :
           (edit&&s.nights>0?'<button class="chip add" onclick="sheetHotel(null,\''+s.id+'\')">'+ic('plus')+' slaapplek</button>':''))+
         (acts.length&&s.nights>0?'<button class="chip act" onclick="routeMode=\'micro\';render()">'+ic('target')+' '+acts.length+' activiteit'+(acts.length>1?'en':'')+'</button>':'')+
         (actsEditable(t)&&r.from&&s.nights>0?'<button class="chip add" onclick="sheetAct(null,\''+r.from+'\')">'+ic('plus')+' activiteit</button>':'')+
@@ -1038,9 +1055,9 @@ function renderRoute(){
       '</div>'+
       '</div>'+
       (s.isHome?'':'<div class="stepper"><div class="row">'+
-        (canStops?'<button onclick="chgNights(\''+s.id+'\',-1)">−</button>':'')+
+        (canMove?'<button onclick="chgNights(\''+s.id+'\',-1)">−</button>':'')+
         '<span class="n">'+s.nights+'</span>'+
-        (canStops?'<button onclick="chgNights(\''+s.id+'\',1)">+</button>':'')+
+        (canMove?'<button onclick="chgNights(\''+s.id+'\',1)">+</button>':'')+
       '</div><span class="lbl">'+(s.nights===1?'nacht':'nachten')+'</span></div>')+
       '</div>'+
     '</div>';
@@ -1063,6 +1080,7 @@ function renderRoute(){
 }
 async function chgNights(id,d){
   const s=cur.data.stops.find(x=>x.id===id);
+  if(stopDateLocked(cur,s)){ alert('Deze bestemming heeft een geboekt hotel — ontgrendel het hotel om de nachten te wijzigen.'); return; }
   s.nights=Math.max(0,(s.nights||0)+d);
   await pushData(); render();
 }
@@ -1134,6 +1152,7 @@ async function stopDragEnd(){
   if(!D.target) return;
   const a=cur.data.stops;
   const from=a.findIndex(x=>x.id===D.stopId); if(from<0) return;
+  if(stopDateLocked(cur,a[from])) return; /* geboekte bestemming blijft op zijn plaats */
   const targetId=D.target.el.dataset.stop;
   if(targetId===D.stopId) return;
   const [mv]=a.splice(from,1);
@@ -1245,10 +1264,11 @@ function sheetStop(id){
     '<div class="field" style="position:relative"><label>Naam (zoek om de locatie te wijzigen)</label><input id="f_sname" autocomplete="off" oninput="stopInput(this.value)" value="'+esc(s.name)+'"><div class="ac" id="stopAc"></div></div>'+
     '<div class="field" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="f_shome" style="width:20px;height:20px;accent-color:var(--green);flex:none" '+(s.isHome?'checked':'')+'>'+
     '<span style="font-size:14px;font-weight:600">Dit is thuis — vertrek- of eindpunt, telt niet mee als bestemming</span></div>'+
+    (stopDateLocked(cur,s)?'<div class="set-hint" style="margin:2px 0 8px;color:var(--green)">'+ic('lock')+' Deze bestemming heeft een geboekt hotel: datum en nachten liggen vast. Ontgrendel het hotel om te wijzigen.</div>':
     '<div class="btns" style="margin-top:6px">'+
       (i>0?'<button class="btn ghost" onclick="moveStop(\''+id+'\',-1)">'+ic('arrow-up')+' Vroeger</button>':'')+
       (i<cur.data.stops.length-1?'<button class="btn ghost" onclick="moveStop(\''+id+'\',1)">'+ic('arrow-down')+' Later</button>':'')+
-    '</div>'+
+    '</div>')+
     (!s.isHome?'<button class="btn ghost" style="width:100%;margin-bottom:4px" onclick="toggleStopOff(\''+id+'\');closeSheet()">'+(s.off?ic('eye')+' Weer meenemen in de reis':ic('eye-off')+' Tijdelijk uitzetten (zie de impact)')+'</button>':'')+
     (!s.isHome&&s.lat!=null?'<button class="btn ghost" style="width:100%;margin-bottom:4px" onclick="stopToAct(\''+id+'\')">'+ic('target')+' Zet om naar activiteit</button>':'')+
     '<div class="btns"><button class="btn danger" onclick="delStop(\''+id+'\')">'+ic('trash')+'</button>'+
@@ -1278,6 +1298,7 @@ async function addHome(where){
 async function moveStop(id,d){
   const a=cur.data.stops; const i=a.findIndex(x=>x.id===id); const j=i+d;
   if(j<0||j>=a.length) return;
+  if(stopDateLocked(cur,a[i])){ alert('Deze bestemming heeft een geboekt hotel en kan niet verschoven worden.'); return; }
   [a[i],a[j]]=[a[j],a[i]];
   await pushData(); closeSheet(); render();
 }
@@ -2292,27 +2313,76 @@ function renderCal(){
 }
 
 /* ================= BUDGET-TAB ================= */
+/* activiteitstype → uitgavecategorie voor het budgetoverzicht */
+function actExpCat(type){
+  if(type==='food') return 'food';
+  if(type==='shop') return 'shop';
+  if(type==='transport'||type==='flight') return 'transport';
+  return 'fun';
+}
+/* alle kosten van de reis samen: losse uitgaven + geboekte/geplande hotels + activiteiten */
+function budgetItems(t){
+  const items=[];
+  t.data.exps.forEach(x=>{
+    items.push({date:x.day||'', desc:x.desc||'Uitgave', cat:x.cat||'other',
+      amount:+x.amount||0, paid:x.paid, deposit:x.deposit, edit:'sheetExp(\''+x.id+'\')'});
+  });
+  t.data.hotels.forEach(h=>{
+    if(h.cost==null||h.cost==='') return;
+    const n=hotelNights(h);
+    items.push({date:h.cin||'', desc:hotName(h)||'Hotel', cat:'stay', amount:+h.cost||0,
+      paid:h.paid, deposit:h.deposit, booked:h.booked, sub:'Verblijf'+(n?' · '+n+(n===1?' nacht':' nachten'):''),
+      edit:'sheetHotel(\''+h.id+'\')'});
+  });
+  t.data.acts.forEach(a=>{
+    if(a.cost==null||a.cost==='') return;
+    items.push({date:a.day||'', desc:actName(a)||'Activiteit', cat:actExpCat(a.type), amount:+a.cost||0,
+      paid:a.paid, deposit:a.deposit, booked:a.booked, edit:'sheetAct(\''+a.id+'\')'});
+  });
+  /* chronologisch; regels zonder datum onderaan */
+  return items.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+}
 function renderBudget(){
   const t=cur, edit=canEdit(t);
-  const exps=[...t.data.exps].sort((a,b)=>(b.day||'').localeCompare(a.day||''));
-  const total=exps.reduce((s,x)=>s+(+x.amount||0),0);
-  let h='<div class="bud-total"><div class="lbl">Totaal uitgegeven</div><div class="amt">'+eur(total)+'</div></div>';
+  const items=budgetItems(t);
+  const total=items.reduce((s,x)=>s+(+x.amount||0),0);
+  const due=items.reduce((s,x)=>s+costDue(x),0);
+  let h='';
+  if(!items.length){
+    h+='<div class="empty"><div class="big">'+ic('wallet')+'</div>Nog geen kosten.'+
+       (edit?'<br>Voeg een kost toe bij een hotel of activiteit, of tik op <b>+</b> voor een losse uitgave.':'')+'</div>';
+    if(edit) h+='<button class="fab" onclick="sheetExp()">'+ic('plus')+'</button>';
+    return h;
+  }
+  items.forEach(x=>{
+    const icn=(EXP_CATS[x.cat]||EXP_CATS.other)[0];
+    const dueX=costDue(x), prepaidX=costPrepaid(x);
+    let status='';
+    if((+x.amount||0)>0){
+      if(x.paid) status='<span style="color:var(--green-dark);font-weight:700">'+ic('check')+' betaald</span>';
+      else if(dueX<(+x.amount||0)) status='<span style="color:#b8860b;font-weight:700">aanbetaling '+eur(prepaidX)+' · '+eur(dueX)+' open</span>';
+      else status='<span style="color:var(--muted);font-weight:700">nog te betalen</span>';
+    }
+    const sub=[x.date?fmtDY(x.date):'', x.sub||''].filter(Boolean).join(' · ');
+    h+='<div class="card">'+(edit?'<button class="kebab" onclick="'+x.edit+'">'+ic('pencil')+'</button>':'')+
+      '<div class="exp"><span class="ic">'+ic(icn)+'</span><div class="body"><h4>'+(x.booked?ic('lock')+' ':'')+esc(x.desc)+'</h4>'+
+      '<div class="sub2">'+esc(sub)+(sub&&status?' · ':'')+status+'</div></div>'+
+      '<span class="amt" style="margin-right:'+(edit?'26':'0')+'px">'+eur(+x.amount||0)+'</span></div></div>';
+  });
+  /* categorie-uitsplitsing */
   const perCat={};
-  exps.forEach(x=>{ perCat[x.cat]=(perCat[x.cat]||0)+(+x.amount||0); });
+  items.forEach(x=>{ perCat[x.cat]=(perCat[x.cat]||0)+(+x.amount||0); });
   const cats=Object.keys(perCat);
   if(cats.length){
-    h+='<div class="card">'+cats.map(c=>{
+    h+='<div class="card" style="margin-top:14px">'+cats.map(c=>{
       const pair=EXP_CATS[c]||EXP_CATS.other;
       return '<div class="bud-cat"><span>'+ic(pair[0])+' '+pair[1]+'</span><b>'+eur(perCat[c])+'</b></div>';
     }).join('')+'</div>';
   }
-  if(!exps.length) h+='<div class="empty"><div class="big">'+ic('wallet')+'</div>Nog geen uitgaven.'+(edit?'<br>Tik op <b>+</b> om er een toe te voegen.':'')+'</div>';
-  exps.forEach(x=>{
-    const icn=(EXP_CATS[x.cat]||EXP_CATS.other)[0];
-    h+='<div class="card">'+(edit?'<button class="kebab" onclick="sheetExp(\''+x.id+'\')">'+ic('pencil')+'</button>':'')+
-      '<div class="exp"><span class="ic">'+ic(icn)+'</span><div class="body"><h4>'+esc(x.desc)+'</h4>'+
-      '<div class="sub2">'+(x.day?fmtDY(x.day):'')+'</div></div><span class="amt" style="margin-right:'+(edit?'26':'0')+'px">'+eur(+x.amount||0)+'</span></div></div>';
-  });
+  /* de som onderaan */
+  h+='<div class="bud-total" style="margin:14px 0 0"><div class="lbl">Totale kost</div><div class="amt">'+eur(total)+'</div>'+
+     (due>0?'<div class="lbl" style="margin-top:6px">nog te betalen: <b>'+eur(due)+'</b></div>':
+      '<div class="lbl" style="margin-top:6px">'+ic('check')+' alles betaald</div>')+'</div>';
   if(edit) h+='<button class="fab" onclick="sheetExp()">'+ic('plus')+'</button>';
   return h;
 }
@@ -2910,6 +2980,13 @@ function sheetAct(id,day,pre){
     '<div class="field" style="flex:2;display:flex;align-items:flex-end"><span class="set-hint" id="opensHint" style="margin:0 0 12px">wordt via Google ingevuld op basis van de dag</span></div></div>'+
     '<div class="field"><label>Adres (optioneel)</label><input id="f_addr" placeholder="Neuschwansteinstraße 20, Schwangau" value="'+esc(a?a.addr:(pre.addr||''))+'"></div>'+
     '<div class="field"><label>Notitie (optioneel)</label><textarea id="f_note" rows="2">'+esc(a?a.note:'')+'</textarea></div>'+
+    '<div class="field" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="f_abooked" style="width:20px;height:20px;accent-color:var(--green);flex:none" '+(a&&a.booked?'checked':'')+'>'+
+    '<span style="font-size:14px;font-weight:600">'+ic('ticket')+' Geboekt / tickets — tijd ligt vast</span></div>'+
+    '<div class="field"><label>Boekingsnr (optioneel)</label><input id="f_aref" value="'+esc(a?(a.ref||''):'')+'"></div>'+
+    '<div class="row2"><div class="field"><label>Kost (€)</label><input id="f_acost" type="number" step="0.01" inputmode="decimal" value="'+(a&&a.cost!=null?a.cost:'')+'"></div>'+
+    '<div class="field"><label>Aanbetaling (€, optioneel)</label><input id="f_adep" type="number" step="0.01" inputmode="decimal" value="'+(a&&a.deposit!=null?a.deposit:'')+'"></div></div>'+
+    '<div class="field" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="f_apaid" style="width:20px;height:20px;accent-color:var(--green);flex:none" '+(a&&a.paid?'checked':'')+'>'+
+    '<span style="font-size:14px;font-weight:600">Volledig betaald</span></div>'+
     (a&&canEdit(cur)?'<div class="btns" style="margin-top:4px">'+
       '<button class="btn ghost" title="Blijft een activiteit; de etappe rijdt er langs" onclick="actAsVia(\''+a.id+'\')">'+ic('route')+' Routepunt</button>'+
       '<button class="btn ghost" title="Wordt een eigen bestemming op de route" onclick="actToStop(\''+a.id+'\')">'+ic('map-pin')+' Bestemming</button></div>':'')+
@@ -2976,10 +3053,16 @@ async function saveAct(id,preLat,preLng){
   const tV=document.getElementById('f_time').value, eV=document.getElementById('f_aend').value;
   const durSel=+document.getElementById('f_dur').value||null;
   const durTijden=(hmToMin(tV)!=null&&hmToMin(eV)!=null&&hmToMin(eV)>hmToMin(tV))?hmToMin(eV)-hmToMin(tV):null;
+  const booked=document.getElementById('f_abooked').checked;
+  const acost=parseFloat(document.getElementById('f_acost').value);
+  const adep=parseFloat(document.getElementById('f_adep').value);
   const data={ title, alias:document.getElementById('f_alias').value.trim(),
     type:pickedType, day:document.getElementById('f_day').value, time:tV, end:eV,
-    dur:durSel||durTijden||60, timeLocked:pickedTimeLock,
-    opens:document.getElementById('f_opens').value, addr, note:document.getElementById('f_note').value.trim() };
+    dur:durSel||durTijden||60, timeLocked:pickedTimeLock||booked, /* geboekt = tijd ligt vast */
+    opens:document.getElementById('f_opens').value, addr, note:document.getElementById('f_note').value.trim(),
+    booked, ref:document.getElementById('f_aref').value.trim(),
+    cost:isNaN(acost)?null:acost, deposit:isNaN(adep)?null:adep,
+    paid:document.getElementById('f_apaid').checked };
   const old=id?cur.data.acts.find(x=>x.id===id):null;
   if(ACTPICK&&ACTPICK.lat!=null){ data.lat=ACTPICK.lat; data.lng=ACTPICK.lng; }
   else if(preLat!=null&&preLng!=null){ data.lat=preLat; data.lng=preLng; }
@@ -3166,8 +3249,14 @@ function sheetHotel(id,stopId){
     '<div class="field" style="position:relative"><label>Naam (zoek hotel via Google of typ vrij)</label><input id="f_hname" autocomplete="off" oninput="hotInput(this.value)" placeholder="Bijv. Hotel Alpenblick" value="'+esc(x?x.name:'')+'"><div class="ac" id="hotAc"></div></div>'+
     '<div class="field"><label>Alias (eigen naam, krijgt overal voorrang)</label><input id="f_halias" placeholder="Bijv. ons hotel in München" value="'+esc(x?(x.alias||''):'')+'"></div>'+
     '<div class="field"><label>Adres</label><input id="f_haddr" placeholder="Hauptstraße 12, München" value="'+esc(x?x.addr:'')+'"></div>'+
-    '<div class="row2"><div class="field"><label>Check-in</label><input id="f_cin" type="date" value="'+(x?(x.cin||''):cin)+'"></div>'+
-    '<div class="field"><label>Check-out</label><input id="f_cout" type="date" value="'+(x?(x.cout||''):cout)+'"></div></div>'+
+    '<div class="row2"><div class="field"><label>Check-in</label><input id="f_cin" type="date"'+(x&&x.booked?' disabled':'')+' value="'+(x?(x.cin||''):cin)+'"></div>'+
+    '<div class="field"><label>Check-out</label><input id="f_cout" type="date"'+(x&&x.booked?' disabled':'')+' value="'+(x?(x.cout||''):cout)+'"></div></div>'+
+    '<div class="field" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="f_hbooked" style="width:20px;height:20px;accent-color:var(--green);flex:none" '+(x&&x.booked?'checked':'')+' onchange="toggleHotBooked()">'+
+    '<span style="font-size:14px;font-weight:600">'+ic('lock')+' Geboekt — datum van hotel en bestemming liggen vast</span></div>'+
+    '<div class="row2"><div class="field"><label>Kost (€)</label><input id="f_hcost" type="number" step="0.01" inputmode="decimal" value="'+(x&&x.cost!=null?x.cost:'')+'"></div>'+
+    '<div class="field"><label>Aanbetaling (€, optioneel)</label><input id="f_hdep" type="number" step="0.01" inputmode="decimal" value="'+(x&&x.deposit!=null?x.deposit:'')+'"></div></div>'+
+    '<div class="field" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="f_hpaid" style="width:20px;height:20px;accent-color:var(--green);flex:none" '+(x&&x.paid?'checked':'')+'>'+
+    '<span style="font-size:14px;font-weight:600">Volledig betaald</span></div>'+
     '<div class="row2"><div class="field"><label>Boekingsnr</label><input id="f_ref" value="'+esc(x?x.ref:'')+'"></div>'+
     '<div class="field"><label>Telefoon</label><input id="f_tel" type="tel" value="'+esc(x?x.tel:'')+'"></div></div>'+
     '<div class="field"><label>Notitie</label><textarea id="f_hnote" rows="2">'+esc(x?x.note:'')+'</textarea></div>'+
@@ -3179,11 +3268,16 @@ async function saveHotel(id,stopId){
   const name=document.getElementById('f_hname').value.trim();
   if(!name){ alert('Geef een naam.'); return; }
   const addr=document.getElementById('f_haddr').value.trim();
+  const hcost=parseFloat(document.getElementById('f_hcost').value);
+  const hdep=parseFloat(document.getElementById('f_hdep').value);
   const data={ name, addr,
     alias:document.getElementById('f_halias').value.trim(),
     cin:document.getElementById('f_cin').value, cout:document.getElementById('f_cout').value,
     ref:document.getElementById('f_ref').value.trim(), tel:document.getElementById('f_tel').value.trim(),
-    note:document.getElementById('f_hnote').value.trim() };
+    note:document.getElementById('f_hnote').value.trim(),
+    booked:document.getElementById('f_hbooked').checked,
+    cost:isNaN(hcost)?null:hcost, deposit:isNaN(hdep)?null:hdep,
+    paid:document.getElementById('f_hpaid').checked };
   const old=id?cur.data.hotels.find(y=>y.id===id):null;
   if(stopId) data.stopId=stopId; else if(old&&old.stopId) data.stopId=old.stopId;
   if(HOTPICK&&HOTPICK.lat!=null){ data.lat=HOTPICK.lat; data.lng=HOTPICK.lng; data.gpid=HOTPICK.gpid; }
@@ -3197,6 +3291,11 @@ async function saveHotel(id,stopId){
   await pushData(); closeSheet(); render();
 }
 async function delHotel(id){ cur.data.hotels=cur.data.hotels.filter(y=>y.id!==id); await pushData(); closeSheet(); render(); }
+/* geboekt aan/uit: check-in/-out meteen op slot zetten in het formulier */
+function toggleHotBooked(){
+  const on=document.getElementById('f_hbooked').checked;
+  ['f_cin','f_cout'].forEach(k=>{ const el=document.getElementById(k); if(el) el.disabled=on; });
+}
 
 /* --- uitgave --- */
 function sheetExp(id){
@@ -3207,6 +3306,9 @@ function sheetExp(id){
     '<div class="row2"><div class="field"><label>Bedrag (€)</label><input id="f_eamt" type="number" step="0.01" inputmode="decimal" value="'+(x?x.amount:'')+'"></div>'+
     '<div class="field"><label>Datum</label><input id="f_eday" type="date" value="'+(x?(x.day||''):'')+'"></div></div>'+
     '<div class="field"><label>Categorie</label><div class="type-pick">'+Object.entries(EXP_CATS).map(([k,v])=>'<button class="'+(k===pickedCat?'on':'')+'" onclick="pickCat(\''+k+'\',this)">'+ic(v[0])+' '+v[1]+'</button>').join('')+'</div></div>'+
+    '<div class="row2"><div class="field"><label>Aanbetaling (€, optioneel)</label><input id="f_edep" type="number" step="0.01" inputmode="decimal" value="'+(x&&x.deposit!=null?x.deposit:'')+'"></div>'+
+    '<div class="field" style="display:flex;align-items:flex-end;gap:10px;padding-bottom:2px"><input type="checkbox" id="f_epaid" style="width:20px;height:20px;accent-color:var(--green);flex:none" '+(x&&x.paid?'checked':'')+'>'+
+    '<span style="font-size:14px;font-weight:600">Volledig betaald</span></div></div>'+
     '<div class="btns">'+(x?'<button class="btn danger" onclick="delExp(\''+x.id+'\')">'+ic('trash')+'</button>':'')+
     '<button class="btn ghost" onclick="closeSheet()">Annuleer</button>'+
     '<button class="btn primary" onclick="saveExp(\''+(x?x.id:'')+'\')">Bewaar</button></div>');
@@ -3215,7 +3317,9 @@ async function saveExp(id){
   const desc=document.getElementById('f_edesc').value.trim();
   const amount=parseFloat(document.getElementById('f_eamt').value);
   if(!desc||isNaN(amount)){ alert('Vul omschrijving en bedrag in.'); return; }
-  const data={desc, amount, cat:pickedCat, day:document.getElementById('f_eday').value};
+  const edep=parseFloat(document.getElementById('f_edep').value);
+  const data={desc, amount, cat:pickedCat, day:document.getElementById('f_eday').value,
+    deposit:isNaN(edep)?null:edep, paid:document.getElementById('f_epaid').checked};
   if(id) Object.assign(cur.data.exps.find(y=>y.id===id), data);
   else cur.data.exps.push(Object.assign({id:uid()},data));
   await pushData(); closeSheet(); render();
