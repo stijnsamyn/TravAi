@@ -1384,8 +1384,8 @@ const MAP_CATS={
   tesla:['brand-tesla','Tesla',['electric_vehicle_charging_station'],'#e82127'],
   fuel:['gas-station','Tanken',['gas_station'],'#868e96']
 };
-/* categorieën die Google niet kan filteren op merk — altijd via Overpass */
-const CAT_OSM_ONLY={tesla:1};
+/* merkgebonden categorieën: Google kent geen merk-type, dus zoeken we op tekst i.p.v. op type */
+const CAT_TEXT={tesla:{q:'Tesla Supercharger',match:/tesla/i}};
 const CAT_OVERPASS={
   hotel:'nwr(around:R,LAT,LNG)[tourism~"hotel|guest_house|hostel"][name];',
   rest:'nwr(around:R,LAT,LNG)[amenity=restaurant][name];',
@@ -1413,14 +1413,17 @@ async function catSearch(k){
   const radius=Math.min(30000,Math.max(600,diagKm*1000/2.6));
   const cat=MAP_CATS[k];
   CATRES=[];
-  if(GMAPS_KEY&&!CAT_OSM_ONLY[k]){
+  if(GMAPS_KEY){
+    const txt=CAT_TEXT[k];
+    const circle={center:{latitude:c.lat,longitude:c.lng},radius:Math.round(radius)};
     try{
-      const r=await fetch('https://places.googleapis.com/v1/places:searchNearby',{
+      const r=await fetch('https://places.googleapis.com/v1/places:'+(txt?'searchText':'searchNearby'),{
         method:'POST',
         headers:{'Content-Type':'application/json','X-Goog-Api-Key':GMAPS_KEY,
           'X-Goog-FieldMask':'places.id,places.displayName,places.location,places.formattedAddress,places.rating,places.userRatingCount,places.internationalPhoneNumber,places.primaryType,places.photos'},
-        body:JSON.stringify({includedTypes:cat[2],maxResultCount:20,languageCode:'nl',rankPreference:'POPULARITY',
-          locationRestriction:{circle:{center:{latitude:c.lat,longitude:c.lng},radius:Math.round(radius)}}})
+        body:JSON.stringify(txt
+          ?{textQuery:txt.q,includedType:cat[2][0],maxResultCount:20,languageCode:'nl',locationBias:{circle}}
+          :{includedTypes:cat[2],maxResultCount:20,languageCode:'nl',rankPreference:'POPULARITY',locationRestriction:{circle}})
       });
       const js=await r.json();
       CATRES=(js.places||[]).map(p=>({
@@ -1429,6 +1432,8 @@ async function catSearch(k){
         kind:p.primaryType, gpid:p.id,
         photo:(p.photos&&p.photos[0])?'https://places.googleapis.com/v1/'+p.photos[0].name+'/media?maxWidthPx=240&key='+GMAPS_KEY:null
       })).filter(p=>p.name&&p.lat!=null);
+      /* tekstzoek stuurt alleen bij, niet af: merk-check + straal zelf afdwingen */
+      if(txt) CATRES=CATRES.filter(p=>txt.match.test(p.name)&&havKm(c,p)<=radius/1000*1.5);
     }catch(e){ CATRES=[]; }
   }
   if(!CATRES.length){
