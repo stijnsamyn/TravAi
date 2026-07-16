@@ -1381,8 +1381,11 @@ const MAP_CATS={
   sight:['star','Bezienswaardig',['tourist_attraction','historical_landmark'],'#845ef7'],
   shop:['shopping-bag','Winkels',['supermarket','shopping_mall'],'#0ca678'],
   ev:['bolt','Laadpunten',['electric_vehicle_charging_station'],'#f59f00'],
+  tesla:['brand-tesla','Tesla',['electric_vehicle_charging_station'],'#e82127'],
   fuel:['gas-station','Tanken',['gas_station'],'#868e96']
 };
+/* categorieën die Google niet kan filteren op merk — altijd via Overpass */
+const CAT_OSM_ONLY={tesla:1};
 const CAT_OVERPASS={
   hotel:'nwr(around:R,LAT,LNG)[tourism~"hotel|guest_house|hostel"][name];',
   rest:'nwr(around:R,LAT,LNG)[amenity=restaurant][name];',
@@ -1391,6 +1394,7 @@ const CAT_OVERPASS={
   sight:'nwr(around:R,LAT,LNG)[tourism=attraction][name];nwr(around:R,LAT,LNG)[historic][name];',
   shop:'nwr(around:R,LAT,LNG)[shop~"supermarket|mall"][name];',
   ev:'nwr(around:R,LAT,LNG)[amenity=charging_station];',
+  tesla:'nwr(around:R,LAT,LNG)[amenity=charging_station][~"^(brand|operator|network|name)$"~"Tesla",i];',
   fuel:'nwr(around:R,LAT,LNG)[amenity=fuel][name];'
 };
 function renderCatBar(){
@@ -1409,7 +1413,7 @@ async function catSearch(k){
   const radius=Math.min(30000,Math.max(600,diagKm*1000/2.6));
   const cat=MAP_CATS[k];
   CATRES=[];
-  if(GMAPS_KEY){
+  if(GMAPS_KEY&&!CAT_OSM_ONLY[k]){
     try{
       const r=await fetch('https://places.googleapis.com/v1/places:searchNearby',{
         method:'POST',
