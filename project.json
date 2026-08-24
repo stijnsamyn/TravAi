@@ -1,0 +1,8 @@
+{
+  "naam": "TravAI Pro",
+  "beschrijving": "Reisplanner met Supabase-achterkant. Statische pagina achter een lokaal servertje, zodat aanmelden en opgeslagen instellingen per app werken.",
+  "type": "server",
+  "start": ["python3", "-m", "http.server", "8030", "--bind", "127.0.0.1"],
+  "poort": 8030,
+  "autostart": false
+}
